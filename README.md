@@ -133,7 +133,9 @@ backend/servicing_desk/
   handlers.py       consumer group → handlers registry (both transports read it)
   service.py        intake (idempotent), record_proposal, approve_triage, send_letter, respond
   triage/           TriageProposal schema; agent.py = Claude structured output; gemini.py = same contract on Gemini; stub.py = keyword rules
-  workers/          clock_worker.sweep; cli.py = `desk-worker <role>`
+  workers/          clock_worker.sweep; cli.py = `desk-worker <role> [--once]`
+backend/Dockerfile  one image, role = command, non-root
+k8s/                kustomize tree: StatefulSets, Deployments, CronJob, HPA; deploy.sh tags by content id
   api/main.py       FastAPI: /intake, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
 backend/tests/      34 tests on SQLite — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle
 ```
@@ -159,6 +161,32 @@ desk-worker triage-worker  # and letter-worker, ledger-worker, credit-worker, sa
 
 Without Kafka, `desk-worker all` runs the sweep and every handler in one loop.
 
+### On Kubernetes
+
+```bash
+kubectl config use-context docker-desktop            # or any local cluster
+grep -E '^(GEMINI_API_KEY|ANTHROPIC_API_KEY)=.' backend/.env > /tmp/keys.env
+kubectl create namespace desk && kubectl -n desk create secret generic desk-keys --from-env-file=/tmp/keys.env
+sh k8s/deploy.sh                                     # build → tag by content id → kubectl apply -k k8s
+kubectl -n desk port-forward svc/api 8000:8000
+```
+
+What runs (`kubectl -n desk get all`): Postgres and Kafka as StatefulSets with PVCs; the API as a 2-replica
+Deployment (liveness `/healthz` never touches the DB, readiness `/readyz` does — an outage drains traffic
+without restarting pods); one Deployment per consumer group plus the relay; the clock sweep as a **CronJob**
+(`desk-worker clock --once`, every minute, `concurrencyPolicy: Forbid`); an **HPA** on the triage worker
+only, 1→6 replicas = the topic's partition count, because that is the one component whose cost is a model
+call. The HPA needs metrics-server (`kubectl apply -f …/metrics-server/…/components.yaml`, plus
+`--kubelet-insecure-tls` on a local cluster).
+
+Three things a first deploy taught:
+- `envFrom` order matters. A secret built from the whole `.env` carried `DATABASE_URL=localhost` and, listed
+  after the ConfigMap, overrode the in-cluster address — instant crash-loop. The secret holds keys only.
+- A fixed image tag with `IfNotPresent` means the node keeps its first copy forever; rebuilds never arrive.
+  `deploy.sh` tags by content id and writes it into the kustomization.
+- Killing the saga orchestrator pod mid-saga (`kubectl delete pod -l app=saga-worker`) changed nothing: the
+  replacement resumed from committed offsets, and per-group dedupe made the redelivery a no-op.
+
 `TRIAGE_PROVIDER` picks the backend: `claude` (Anthropic key), `gemini` (AI Studio key, free tier), or `stub`. The stub swaps the model for keyword rules (same proposal contract, every value still quotes the letter) so the whole pipeline runs in CI and on a laptop without a key. Tests need no database or API key:
 
 ```bash
@@ -168,8 +196,8 @@ cd backend && .venv/Scripts/python -m pytest
 ## Roadmap
 
 - ~~Step 2 — split and stream.~~ Done: Kafka relay, five consumer groups, Respond saga with compensation.
-- **Step 3 — run it somewhere.** `k8s/` manifests: API and worker Deployments, clock sweep as a CronJob, HPA
-  on the triage worker (the only component whose cost is the model call), StatefulSets for Postgres/Kafka.
+- ~~Step 3 — run it somewhere.~~ Done: `k8s/`, verified on Docker Desktop Kubernetes (kind provisioner) —
+  CronJob fired a clock and the credit worker released the hold; orchestrator pod killed mid-saga, saga finished.
 - **Operator UI.** Next.js queue: cases by due date, proposal with source quotes side-by-side with the
   letter, approve / edit / flag exception, letter composer that shows which required fields are missing.
 

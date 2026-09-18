@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: desk-config
+data:
+  DATABASE_URL: postgresql+psycopg://desk:desk@postgres:5432/desk
+  KAFKA_BOOTSTRAP: kafka:9092
+  KAFKA_TOPIC: desk.case-events
+  TRIAGE_PROVIDER: gemini
+  # 0.3 so the retry / compensation path of the saga shows up in a demo without forcing it
+  LETTER_FAIL_RATE: "0.3"
+  SAGA_MAX_ATTEMPTS: "3"
+  CLOCK_POLL_SECONDS: "5"
+  PYTHONIOENCODING: utf-8

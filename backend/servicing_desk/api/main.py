@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from datetime import date
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .. import service
@@ -82,6 +83,19 @@ def _view(case: Case) -> dict:
             for p in case.proposals
         ],
     }
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness: the process is up. No dependencies checked, so a broken DB does not get the pod killed."""
+    return {"ok": True}
+
+
+@app.get("/readyz")
+def readyz(session: Session = Depends(get_session)):
+    """Readiness: can serve traffic — the database answers."""
+    session.execute(text("select 1"))
+    return {"ok": True}
 
 
 @app.post("/intake", status_code=201)
@@ -175,4 +189,4 @@ def do_transition(case_id: str, body: TransitionIn, session: Session = Depends(g
 
 
 def run() -> None:
-    uvicorn.run("servicing_desk.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("servicing_desk.api.main:app", host="0.0.0.0", port=8000, reload=os.environ.get("DESK_RELOAD") == "1")

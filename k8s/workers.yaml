@@ -1,0 +1,149 @@
+# One Deployment per consumer group, plus the relay. All from the same image; the role is the command.
+#
+# Why Deployments and not one pod with six containers: each group scales, restarts, and rolls out on its
+# own. A rebalance in letter-worker must not touch the saga orchestrator.
+#
+# Why `replicas: 1` for the relay: it locks outbox rows with SKIP LOCKED, so two relays would be safe, but
+# one is enough and keeps event order across cases simple.
+#
+# Consumers have no readiness probe on purpose: they receive no traffic. Kafka decides who is a member.
+# Liveness is the process being alive; a stuck consumer is caught by max.poll.interval on the broker side.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: relay }
+  template:
+    metadata:
+      labels: { app: relay, tier: worker }
+    spec:
+      containers:
+        - name: relay
+          image: servicing-desk
+          imagePullPolicy: IfNotPresent
+          command: ["desk-worker", "relay"]
+          envFrom:
+            - configMapRef: { name: desk-config }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triage-worker
+spec:
+  replicas: 1   # HPA owns this number; see hpa.yaml
+  selector:
+    matchLabels: { app: triage-worker }
+  template:
+    metadata:
+      labels: { app: triage-worker, tier: worker }
+    spec:
+      terminationGracePeriodSeconds: 60   # let an in-flight model call finish and commit its offset
+      containers:
+        - name: worker
+          image: servicing-desk
+          imagePullPolicy: IfNotPresent
+          command: ["desk-worker", "triage-worker"]
+          envFrom:
+            - configMapRef: { name: desk-config }
+            - secretRef: { name: desk-keys }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 384Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: letter-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: letter-worker }
+  template:
+    metadata:
+      labels: { app: letter-worker, tier: worker }
+    spec:
+      containers:
+        - name: worker
+          image: servicing-desk
+          imagePullPolicy: IfNotPresent
+          command: ["desk-worker", "letter-worker"]
+          envFrom:
+            - configMapRef: { name: desk-config }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ledger-worker }
+  template:
+    metadata:
+      labels: { app: ledger-worker, tier: worker }
+    spec:
+      containers:
+        - name: worker
+          image: servicing-desk
+          imagePullPolicy: IfNotPresent
+          command: ["desk-worker", "ledger-worker"]
+          envFrom:
+            - configMapRef: { name: desk-config }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: credit-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: credit-worker }
+  template:
+    metadata:
+      labels: { app: credit-worker, tier: worker }
+    spec:
+      containers:
+        - name: worker
+          image: servicing-desk
+          imagePullPolicy: IfNotPresent
+          command: ["desk-worker", "credit-worker"]
+          envFrom:
+            - configMapRef: { name: desk-config }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saga-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: saga-worker }
+  template:
+    metadata:
+      labels: { app: saga-worker, tier: worker }
+    spec:
+      containers:
+        - name: worker
+          image: servicing-desk
+          imagePullPolicy: IfNotPresent
+          command: ["desk-worker", "saga-worker"]
+          envFrom:
+            - configMapRef: { name: desk-config }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }

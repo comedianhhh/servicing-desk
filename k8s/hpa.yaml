@@ -1,0 +1,22 @@
+# Only the triage worker is worth scaling out: its cost is a model call, and the topic has 6 partitions,
+# so up to 6 group members get work (a 7th would idle). Needs metrics-server to act; without it the HPA
+# sits at minReplicas and reports <unknown> for CPU (see README).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: triage-worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: triage-worker
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 60 }
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120   # a consumer-group rebalance costs more than a few idle seconds

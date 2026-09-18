@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -56,9 +57,21 @@ def decode(raw: bytes) -> OutboxEvent:
     return ev  # transient: never added to a session; consumers only read it
 
 
-def ensure_topic(partitions: int = 6) -> None:
+def ensure_topic(partitions: int = 6, wait_seconds: int = 90) -> None:
+    """Create the topic if missing. Waits for the broker rather than crashing: on a fresh cluster the
+    workers usually start before Kafka is ready, and a crash-loop is noisier than a short wait."""
     admin = AdminClient({"bootstrap.servers": settings.kafka_bootstrap})
-    if settings.kafka_topic in admin.list_topics(timeout=10).topics:
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        try:
+            existing = admin.list_topics(timeout=5).topics
+            break
+        except KafkaException as e:
+            if time.monotonic() > deadline:
+                raise
+            log.info("broker not ready (%s); retrying", e.args[0].str())
+            time.sleep(3)
+    if settings.kafka_topic in existing:
         return
     fut = admin.create_topics([NewTopic(settings.kafka_topic, num_partitions=partitions, replication_factor=1)])
     for topic, f in fut.items():

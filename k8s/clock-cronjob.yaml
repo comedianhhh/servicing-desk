@@ -1,0 +1,28 @@
+# The clock sweep is a CronJob, not a Deployment: periodic work with a natural end.
+# `--once` = one sweep + one relay pass, then exit 0. concurrencyPolicy Forbid: if a pass runs long, the
+# next one waits instead of racing it (the row lock would make a race safe; a queue is still cleaner).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clock-sweep
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: clock
+              image: servicing-desk
+              imagePullPolicy: IfNotPresent
+              command: ["desk-worker", "clock", "--once"]
+              envFrom:
+                - configMapRef: { name: desk-config }
+              resources:
+                requests: { cpu: 50m, memory: 96Mi }
+                limits: { memory: 256Mi }

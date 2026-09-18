@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: desk
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres.yaml
+  - kafka.yaml
+  - api.yaml
+  - workers.yaml
+  - clock-cronjob.yaml
+  - hpa.yaml
+# The model key is NOT in this tree. Create it once, from ONLY the key lines of your .env. A secret made from
+# the whole file would carry DATABASE_URL=localhost etc. and, being listed after the ConfigMap in envFrom,
+# would override the in-cluster addresses (that exact mistake cost one crash-loop on first deploy):
+#   grep -E '^(GEMINI_API_KEY|ANTHROPIC_API_KEY)=.' backend/.env > /tmp/keys.env
+#   kubectl -n desk create secret generic desk-keys --from-env-file=/tmp/keys.env
+#
+# newTag is the image's content id, written by k8s/deploy.sh. A fixed tag like :dev with IfNotPresent means
+# the node keeps whatever it cached the first time and a rebuild silently never reaches the cluster.
+images:
+  - name: servicing-desk
+    newTag: 93f4a0778788
