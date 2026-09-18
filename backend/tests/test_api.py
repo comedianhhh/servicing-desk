@@ -10,8 +10,6 @@ from servicing_desk import outbox
 from servicing_desk.api import main
 from servicing_desk.db import get_session
 from servicing_desk.models import Base
-from servicing_desk.triage.schema import TriageProposal
-from servicing_desk.workers import triage_worker
 from tests.conftest import NOE_LETTER, proposal_dict
 
 
@@ -34,7 +32,6 @@ def client(monkeypatch):
 
     monkeypatch.setattr(main, "engine", engine)
     main.app.dependency_overrides[get_session] = _session
-    monkeypatch.setattr(triage_worker, "propose", lambda body: (TriageProposal.model_validate(proposal_dict()), "fake"))
     with TestClient(main.app) as c:
         yield c, Local
     main.app.dependency_overrides.clear()
@@ -79,24 +76,35 @@ def test_full_noe_lifecycle(client):
     assert r.status_code == 422
     r = c.post(f"/cases/{case_id}/letters", json={"template": "L1", "fields": {"received_on": "2026-09-01", "reference": case_id}, "operator": "op-1"})
     assert r.status_code == 201
-
+    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "operator": "op-1", "expected_version": case["version"]})
+    assert r.status_code == 409  # queued, not delivered yet
+    with Local() as s:
+        outbox.relay_once(s)  # letter-worker delivers
+        s.commit()
     r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "operator": "op-1", "expected_version": case["version"]})
     assert r.status_code == 200 and r.json()["status"] == "INVESTIGATING"
     v = r.json()["version"]
 
+    # respond through the saga: ledger posting → letter → RESPONDED
     r = c.post(
-        f"/cases/{case_id}/letters",
-        json={"template": "L3", "fields": {"reasons": "fee is contractual", "how_to_request_documents": "write to PO Box 1", "contact_phone": "800-555-0100"}, "operator": "op-1"},
+        f"/cases/{case_id}/respond",
+        json={"template": "L2", "fields": {"correction_made": "reversed fee", "effective_date": "2026-09-20", "contact_phone": "800-555-0100", "adjustment_amount": "-75.00"}, "operator": "op-1"},
     )
-    assert r.status_code == 201
-    r = c.post(f"/cases/{case_id}/transition", json={"to": "RESPONDED", "operator": "op-1", "expected_version": v})
-    assert r.status_code == 200
-    r = c.post(f"/cases/{case_id}/transition", json={"to": "CLOSED", "operator": "op-1", "expected_version": r.json()["version"]})
+    assert r.status_code == 202 and r.json()["step"] == "apply_correction"
+    with Local() as s:
+        outbox.relay_once(s)
+        s.commit()
+    case = c.get(f"/cases/{case_id}").json()
+    assert case["status"] == "RESPONDED" and case["version"] == v + 1
+    fx = c.get(f"/cases/{case_id}/effects").json()
+    assert fx["sagas"][0]["state"] == "DONE" and fx["ledger"][0]["amount"] == "-75.00" and fx["credit_hold"]["released_at"] is None
+
+    r = c.post(f"/cases/{case_id}/transition", json={"to": "CLOSED", "operator": "op-1", "expected_version": case["version"]})
     assert r.status_code == 200 and r.json()["status"] == "CLOSED"
 
     audit = c.get(f"/cases/{case_id}/audit").json()
     actions = [a["action"] for a in audit]
     assert actions[:3] == ["intake", "intake.duplicate", "triage.proposed"]
-    assert "triage.approved" in actions and actions.count("letter.sent") == 2
+    assert "triage.approved" in actions and actions.count("letter.delivered") == 2 and "saga.done" in actions
     approved = next(a for a in audit if a["action"] == "triage.approved")
     assert approved["detail"]["edited_fields"] == ["error_category"]

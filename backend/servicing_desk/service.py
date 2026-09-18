@@ -116,9 +116,17 @@ def approve_triage(
 
 
 def send_letter(session: Session, case: Case, template: str, fields: dict, *, operator: str) -> letters_mod.Letter:
+    """Queue a letter. The letter worker delivers it and sets sent_at; transitions that need the letter wait
+    for that. Responses (L2 / L3 / RFI_RESPONSE) go through respond() so the saga owns the side effects."""
     letter = letters_mod.render(case, template, fields)
-    letter.sent_at = datetime.now(UTC)  # step 2: sent_at is set by the letter worker after delivery
     case.letters.append(letter)
-    audit(session, case.id, operator, "letter.sent", {"template": template, "letter_id": letter.id})
+    session.flush()
+    audit(session, case.id, operator, "letter.requested", {"template": template, "letter_id": letter.id})
     emit(session, case, "letter.requested", {"template": template, "letter_id": letter.id})
     return letter
+
+
+def respond(session: Session, case: Case, template: str, fields: dict, *, operator: str):
+    from .saga import start_respond
+
+    return start_respond(session, case, template, fields, operator=operator)

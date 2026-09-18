@@ -6,10 +6,10 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-# Import workers so their @subscribe handlers register (tests never call the model; see test_outbox).
-import servicing_desk.workers.triage_worker  # noqa: E402,F401
-from servicing_desk import service
+from servicing_desk import handlers, service
+from servicing_desk.config import settings
 from servicing_desk.models import Base, Case
+from servicing_desk.triage.schema import TriageProposal
 
 
 @pytest.fixture
@@ -19,6 +19,16 @@ def session() -> Session:
     s = sessionmaker(bind=engine, expire_on_commit=False, future=True)()
     yield s
     s.close()
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings(monkeypatch):
+    """Tests never call a model and never see the developer's .env (fail rates, Kafka, closed days)."""
+    monkeypatch.setattr(handlers, "propose", lambda body: (TriageProposal.model_validate(proposal_dict()), "fake"))
+    monkeypatch.setattr(settings, "letter_fail_rate", 0.0)
+    monkeypatch.setattr(settings, "saga_max_attempts", 3)
+    monkeypatch.setattr(settings, "kafka_bootstrap", None)
+    monkeypatch.setattr(settings, "creditor_closed_days", set())
 
 
 NOE_LETTER = """Jane Q. Borrower

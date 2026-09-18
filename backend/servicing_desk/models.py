@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -175,16 +175,67 @@ class Letter(Base):
     template: Mapped[str] = mapped_column(String(32))  # L1..L6, RFI_RESPONSE, PAYOFF
     fields: Mapped[dict] = mapped_column(JSON)
     body: Mapped[str] = mapped_column(Text)
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # set by the letter worker on delivery
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # saga compensation
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     case: Mapped[Case] = relationship(back_populates="letters")
+
+
+class SagaState(str, enum.Enum):
+    RUNNING = "RUNNING"
+    DONE = "DONE"
+    COMPENSATING = "COMPENSATING"
+    COMPENSATED = "COMPENSATED"
+
+
+class Saga(Base):
+    """Orchestration state for a multi-step, multi-system action. The row is the source of truth for where
+    the saga is; every step is driven by an event and advances the row in the same transaction."""
+
+    __tablename__ = "sagas"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    kind: Mapped[str] = mapped_column(String(32))  # respond
+    case_id: Mapped[str] = mapped_column(ForeignKey("cases.id"), index=True)
+    state: Mapped[SagaState] = mapped_column(Enum(SagaState), default=SagaState.RUNNING)
+    step: Mapped[str] = mapped_column(String(32))  # deliver_letter | release_hold | finish
+    started_by: Mapped[str] = mapped_column(String(64))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    attempts: Mapped[int] = mapped_column(default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class LedgerAdjustment(Base):
+    """Stand-in for the servicing system of record. Amounts are decimal strings — money is never a float."""
+
+    __tablename__ = "ledger_adjustments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    saga_id: Mapped[str] = mapped_column(String(32), unique=True)  # idempotency: one adjustment per saga
+    case_id: Mapped[str] = mapped_column(String(32), index=True)
+    loan_id: Mapped[str | None] = mapped_column(String(64))
+    amount: Mapped[str] = mapped_column(String(32))
+    memo: Mapped[str] = mapped_column(Text)
+    posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CreditHold(Base):
+    """Stand-in for the credit-reporting system: a hold on negative reporting for a loan, §1024.35(i)(1)."""
+
+    __tablename__ = "credit_holds"
+    case_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    loan_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    until: Mapped[date] = mapped_column(Date)
+    placed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AuditLog(Base):
     """Append-only. §1024.38(c): if it is not in the servicing file, it did not happen."""
 
     __tablename__ = "audit_log"
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)  # monotonic: order is evidence
     case_id: Mapped[str] = mapped_column(String(32), index=True)
     actor: Mapped[str] = mapped_column(String(64))  # operator id | system:<worker> | llm:<model>
     action: Mapped[str] = mapped_column(String(64))

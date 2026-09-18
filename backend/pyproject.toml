@@ -14,6 +14,7 @@ dependencies = [
     "anthropic>=0.69",
     "holidays>=0.57",
     "google-genai>=1.0",
+    "confluent-kafka>=2.5",
 ]
 
 [project.optional-dependencies]
@@ -21,8 +22,7 @@ dev = ["pytest>=8", "ruff>=0.6", "httpx>=0.27"]
 
 [project.scripts]
 desk-api = "servicing_desk.api.main:run"
-desk-clock-worker = "servicing_desk.workers.clock_worker:main"
-desk-triage-worker = "servicing_desk.workers.triage_worker:main"
+desk-worker = "servicing_desk.workers.cli:main"
 desk-seed = "servicing_desk.seed:main"
 
 [build-system]

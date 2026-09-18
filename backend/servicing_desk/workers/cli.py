@@ -1,0 +1,68 @@
+"""`desk-worker <role>` — one process per consumer group in Kafka mode, or everything in one loop without it.
+
+Roles: triage-worker | letter-worker | ledger-worker | credit-worker | saga-worker (consumer groups),
+       relay (outbox → Kafka), clock (sweep due clocks), all (no Kafka: sweep + in-process relay).
+"""
+
+from __future__ import annotations
+
+import logging
+import sys
+import time
+
+from ..config import settings
+from ..db import session_scope
+from ..handlers import REGISTRY
+from ..outbox import relay_once as inprocess_relay
+from .clock_worker import sweep
+
+log = logging.getLogger("desk-worker")
+
+
+def _loop(step, label: str) -> None:
+    while True:
+        try:
+            with session_scope() as s:
+                n = step(s)
+            if n:
+                log.info("%s: %d", label, n)
+        except Exception:  # noqa: BLE001 — nothing was committed; next pass retries
+            log.exception("%s failed", label)
+        time.sleep(settings.clock_poll_seconds)
+
+
+def main(argv: list[str] | None = None) -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    role = (argv or sys.argv[1:] or ["all"])[0]
+    kafka = bool(settings.kafka_bootstrap)
+
+    if role == "all":
+        if kafka:
+            raise SystemExit("KAFKA_BOOTSTRAP is set; run one role per process (relay, clock, <group>)")
+        _loop(lambda s: sweep(s) + inprocess_relay(s), "sweep+relay")
+    elif role == "clock":
+        if kafka:
+            from ..bus import relay_once as kafka_relay
+
+            _loop(lambda s: sweep(s) + kafka_relay(s), "sweep+relay")
+        else:
+            _loop(sweep, "sweep")
+    elif role == "relay":
+        from ..bus import ensure_topic
+        from ..bus import relay_once as kafka_relay
+
+        ensure_topic()
+        _loop(kafka_relay, "relay")
+    elif role in REGISTRY:
+        if not kafka:
+            raise SystemExit(f"{role} as a separate process needs KAFKA_BOOTSTRAP; without Kafka run `desk-worker all`")
+        from ..bus import ensure_topic, run_consumer
+
+        ensure_topic()
+        run_consumer(role, REGISTRY[role])
+    else:
+        raise SystemExit(f"unknown role {role!r}; one of all, clock, relay, {', '.join(REGISTRY)}")
+
+
+if __name__ == "__main__":
+    main()

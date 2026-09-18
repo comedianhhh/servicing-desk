@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from .. import service
 from ..db import engine, get_session
-from ..models import AuditLog, Base, Case, CaseStatus, Proposal
+from ..models import AuditLog, Base, Case, CaseStatus, CreditHold, LedgerAdjustment, Proposal, Saga
 from ..state_machine import TransitionError, transition
 
 
@@ -74,7 +74,9 @@ def _view(case: Case) -> dict:
             {"kind": c.kind.value, "due_on": c.due_on.isoformat(), "calendar": c.calendar, "citation": c.citation, "status": c.status.value}
             for c in sorted(case.clocks, key=lambda c: c.due_on)
         ],
-        "letters": [{"id": lt.id, "template": lt.template, "sent_at": lt.sent_at} for lt in case.letters],
+        "letters": [
+            {"id": lt.id, "template": lt.template, "sent_at": lt.sent_at, "voided_at": lt.voided_at} for lt in case.letters
+        ],
         "proposals": [
             {"id": p.id, "model": p.model, "proposed": p.proposed, "approved": p.approved, "decided_by": p.decided_by}
             for p in case.proposals
@@ -85,6 +87,7 @@ def _view(case: Case) -> dict:
 @app.post("/intake", status_code=201)
 def intake(body: IntakeIn, session: Session = Depends(get_session)):
     case, created = service.intake(session, **body.model_dump())
+    session.commit()
     return {"case_id": case.id, "created": created}
 
 
@@ -103,7 +106,7 @@ def get_case(case_id: str, session: Session = Depends(get_session)):
 
 @app.get("/cases/{case_id}/audit")
 def get_audit(case_id: str, session: Session = Depends(get_session)):
-    rows = session.scalars(select(AuditLog).where(AuditLog.case_id == case_id).order_by(AuditLog.at))
+    rows = session.scalars(select(AuditLog).where(AuditLog.case_id == case_id).order_by(AuditLog.id))
     return [{"at": r.at, "actor": r.actor, "action": r.action, "detail": r.detail} for r in rows]
 
 
@@ -117,6 +120,7 @@ def approve(case_id: str, proposal_id: str, body: ApproveIn, session: Session = 
         service.approve_triage(session, case, proposal, **body.model_dump())
     except (TransitionError, ValidationError, ValueError) as e:
         raise HTTPException(409, str(e)) from e
+    session.commit()
     return _view(case)
 
 
@@ -127,7 +131,36 @@ def send_letter(case_id: str, body: LetterIn, session: Session = Depends(get_ses
         letter = service.send_letter(session, case, body.template, body.fields, operator=body.operator)
     except (ValidationError, ValueError, KeyError) as e:
         raise HTTPException(422, str(e)) from e
+    session.commit()
     return {"letter_id": letter.id, "body": letter.body}
+
+
+@app.post("/cases/{case_id}/respond", status_code=202)
+def respond(case_id: str, body: LetterIn, session: Session = Depends(get_session)):
+    """Starts the Respond saga: [post correction to ledger] → deliver letter → case RESPONDED."""
+    case = _case(session, case_id)
+    try:
+        saga = service.respond(session, case, body.template, body.fields, operator=body.operator)
+    except (ValidationError, ValueError, KeyError) as e:
+        raise HTTPException(422, str(e)) from e
+    session.commit()
+    return {"saga_id": saga.id, "step": saga.step}
+
+
+@app.get("/cases/{case_id}/effects")
+def get_effects(case_id: str, session: Session = Depends(get_session)):
+    """What happened outside the case table: sagas, ledger postings, credit hold."""
+    sagas = session.scalars(select(Saga).where(Saga.case_id == case_id).order_by(Saga.created_at))
+    adjs = session.scalars(select(LedgerAdjustment).where(LedgerAdjustment.case_id == case_id))
+    hold = session.get(CreditHold, case_id)
+    return {
+        "sagas": [
+            {"id": s.id, "kind": s.kind, "state": s.state.value, "step": s.step, "attempts": s.attempts, "last_error": s.last_error, "started_by": s.started_by}
+            for s in sagas
+        ],
+        "ledger": [{"id": a.id, "amount": a.amount, "memo": a.memo, "posted_at": a.posted_at, "reversed_at": a.reversed_at} for a in adjs],
+        "credit_hold": None if hold is None else {"until": hold.until.isoformat(), "placed_at": hold.placed_at, "released_at": hold.released_at},
+    }
 
 
 @app.post("/cases/{case_id}/transition")
@@ -137,6 +170,7 @@ def do_transition(case_id: str, body: TransitionIn, session: Session = Depends(g
         transition(session, case, body.to, actor=body.operator, expected_version=body.expected_version)
     except (TransitionError, ValueError) as e:
         raise HTTPException(409, str(e)) from e
+    session.commit()  # before the response goes out — see get_session
     return _view(case)
 
 

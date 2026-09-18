@@ -27,5 +27,7 @@ def session_scope() -> Iterator[Session]:
 
 
 def get_session() -> Iterator[Session]:
+    """FastAPI dependency. Handlers commit explicitly before returning: the teardown here can run after the
+    response has been sent, and a client that reads right after a write must see the committed row."""
     with session_scope() as s:
         yield s

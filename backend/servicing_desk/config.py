@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # Reg Z general "business day" = days the creditor is open (§1026.2(a)(6)). Weekends plus these dates.
     creditor_closed_days: Annotated[set[date], NoDecode] = set()  # comma-separated ISO dates, not JSON
     clock_poll_seconds: float = 5.0
+    kafka_bootstrap: str | None = None  # unset → in-process relay (tests, single-process demo)
+    kafka_topic: str = "desk.case-events"
+    letter_fail_rate: float = 0.0  # 0..1, simulated mail-vendor failures for the saga demo
+    saga_max_attempts: int = 3
 
     @field_validator("creditor_closed_days", mode="before")
     @classmethod

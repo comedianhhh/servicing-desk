@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from servicing_desk import service
+from servicing_desk import outbox, service
 from servicing_desk.models import CaseStatus as S
 from servicing_desk.models import ClockKind, ClockStatus, OutboxEvent, Proposal
 from servicing_desk.state_machine import TransitionError, transition
@@ -79,6 +79,9 @@ def test_transition_requires_letter(session, case):
     with pytest.raises(TransitionError, match="L1"):
         transition(session, case, S.INVESTIGATING, actor="op-1")
     service.send_letter(session, case, "L1", {"received_on": "2026-09-01", "reference": case.id}, operator="op-1")
+    with pytest.raises(TransitionError, match="L1"):  # queued but not yet delivered
+        transition(session, case, S.INVESTIGATING, actor="op-1")
+    outbox.relay_once(session)  # letter-worker delivers
     transition(session, case, S.INVESTIGATING, actor="op-1")
     ack = next(c for c in case.clocks if c.kind == ClockKind.ACK)
     assert ack.status == ClockStatus.SATISFIED
@@ -88,8 +91,10 @@ def test_extension_only_for_30_day_class_and_only_before_due(session, case):
     p = _propose(session, case, error_category="b6")  # 7-day class, not extendable
     _approve(session, case, p)
     service.send_letter(session, case, "L1", {"received_on": "2026-09-01", "reference": "x"}, operator="op-1")
+    outbox.relay_once(session)
     transition(session, case, S.INVESTIGATING, actor="op-1")
     service.send_letter(session, case, "L4", {"original_due_on": "x", "new_due_on": "y", "reasons": "r"}, operator="op-1")
+    outbox.relay_once(session)
     with pytest.raises(TransitionError, match="not extendable"):
         transition(session, case, S.EXTENDED, actor="op-1", today=date(2026, 9, 3))
 
@@ -98,8 +103,10 @@ def test_extension_adds_15_bd_after_original_due(session, case):
     p = _propose(session, case, error_category="b11")
     _approve(session, case, p)
     service.send_letter(session, case, "L1", {"received_on": "2026-09-01", "reference": "x"}, operator="op-1")
+    outbox.relay_once(session)
     transition(session, case, S.INVESTIGATING, actor="op-1")
     service.send_letter(session, case, "L4", {"original_due_on": "2026-10-15", "new_due_on": "2026-11-05", "reasons": "r"}, operator="op-1")
+    outbox.relay_once(session)
     transition(session, case, S.EXTENDED, actor="op-1", today=date(2026, 10, 1))
     ext = next(c for c in case.clocks if c.kind == ClockKind.EXTENSION)
     assert ext.due_on == date(2026, 11, 5)  # 15 bd after Thu 10-15 (no federal holiday in between)
@@ -109,8 +116,10 @@ def test_extension_notice_after_due_date_is_rejected(session, case):
     p = _propose(session, case, error_category="b11")
     _approve(session, case, p)
     service.send_letter(session, case, "L1", {"received_on": "2026-09-01", "reference": "x"}, operator="op-1")
+    outbox.relay_once(session)
     transition(session, case, S.INVESTIGATING, actor="op-1")
     service.send_letter(session, case, "L4", {"original_due_on": "2026-10-15", "new_due_on": "?", "reasons": "r"}, operator="op-1")
+    outbox.relay_once(session)
     with pytest.raises(TransitionError, match="before the original due date"):
         transition(session, case, S.EXTENDED, actor="op-1", today=date(2026, 10, 16))
 

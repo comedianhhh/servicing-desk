@@ -22,6 +22,10 @@ sentence each letter must contain. Every one of those is a thing this system ref
    appends an audit row, adjusts clocks, and appends outbox events in one transaction. Nothing in that
    function talks to Kafka, a printer, or a credit bureau; consumers read the outbox. §1024.38(c) says the
    servicing file must show what happened — an outbox is how you make that true under failure.
+4. **No distributed transactions.** Anything that touches a second system (the ledger, the mail vendor, the
+   credit bureau) is a saga: one local transaction per step, an event between steps, and a *forward*
+   compensating action when a later step fails — a reversing ledger entry, a voided letter — never a rollback
+   that pretends the first step did not happen.
 
 ## Workflow
 
@@ -76,6 +80,43 @@ Every template's required contents are a Pydantic schema (`letters.py`), so an a
 receipt date or a no-error letter without the borrower's right to request documents cannot be rendered.
 Transitions that legally require a letter (`state_machine.REQUIRED_LETTER`) refuse to run until one exists.
 
+## Topology
+
+```
+                     outbox (Postgres)
+                          │ relay (FOR UPDATE SKIP LOCKED → produce → ack → mark published)
+                          ▼
+            Kafka  desk.case-events   key = case_id, 6 partitions
+                          │
+   ┌──────────────┬───────┴───────┬───────────────┬───────────────┐
+ triage-worker  letter-worker  ledger-worker  credit-worker   saga-worker
+ (model call)   (mail vendor,  (system of     (60-day hold,   (Respond saga
+                 can fail)      record)        released by     orchestrator)
+                                               its own clock)
+```
+
+One topic, keyed by case id, on purpose: Kafka orders within a partition, and what must stay ordered is
+"everything that happened to case X". Each consumer group sees every event and filters by type; a group that
+starts late catches up from its own offset. Both ends are at-least-once (relay: produce → ack → mark;
+consumer: handle in a DB transaction → commit → commit offset) and `outbox.consume()` dedupes on event id per
+group, which is what makes the whole thing effectively-once. Without `KAFKA_BOOTSTRAP` the same handlers run
+under an in-process relay (`desk-worker all`), which is how the tests run.
+
+### The Respond saga
+
+```
+/respond ─► [apply_correction] ─► deliver_letter ─► finish (case → RESPONDED, actor "saga:<operator>")
+                  │                     │
+                  │                     └─ fails N times ─► COMPENSATING: void letter, reverse ledger ─► COMPENSATED
+                  └─ skipped when the letter carries no adjustment (L3, RFI response)
+```
+
+Orchestration, not choreography: one `sagas` row says which step a case is on, who started it, how many
+attempts, and the last error. The correction is posted to the ledger *before* the borrower is told it is
+effective; if the letter then cannot go out, the ledger gets a reversing entry (history kept) and the case
+stays in `INVESTIGATING` with a `needs_attention` audit row. `LETTER_FAIL_RATE` makes the vendor flaky so
+you can watch it happen.
+
 ## Layout
 
 ```
@@ -85,26 +126,38 @@ backend/servicing_desk/
   clocks.py         ClockRule per citation; due-date math incl. the foreclosure-sale cap
   state_machine.py  TRANSITIONS, REQUIRED_LETTER, transition() — the only place status changes
   letters.py        required-contents schemas + templates
-  outbox.py         relay + consume() with per-consumer dedupe
-  service.py        intake (idempotent), record_proposal, approve_triage, send_letter
+  outbox.py         consume() with per-group dedupe; in-process relay
+  bus.py            Kafka transport: relay (producer) + generic consumer-group loop
+  saga.py           Respond saga: start, orchestrator handlers, compensation
+  effects.py        side-effect consumers: letter vendor, ledger, credit hold
+  handlers.py       consumer group → handlers registry (both transports read it)
+  service.py        intake (idempotent), record_proposal, approve_triage, send_letter, respond
   triage/           TriageProposal schema; agent.py = Claude structured output; gemini.py = same contract on Gemini; stub.py = keyword rules
-  workers/          clock_worker (sweeps due rows), triage_worker (consumes correspondence.received)
-  api/main.py       FastAPI: /intake, /cases, /cases/{id}/proposals/{pid}/approve, /letters, /transition, /audit
-backend/tests/      24 tests on SQLite — calendars, clocks, transitions, letters, outbox idempotency, HTTP lifecycle
+  workers/          clock_worker.sweep; cli.py = `desk-worker <role>`
+  api/main.py       FastAPI: /intake, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
+backend/tests/      34 tests on SQLite — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle
 ```
 
 ## Run
 
 ```bash
-docker compose up -d postgres
+docker compose up -d                # postgres + kafka (KRaft, single broker)
 cd backend
 uv venv && uv pip install -e ".[dev]"
-cp ../.env.example .env            # ANTHROPIC_API_KEY + TRIAGE_PROVIDER=claude, or TRIAGE_PROVIDER=stub for a keyless dry run
+cp ../.env.example .env            # a triage key (or TRIAGE_PROVIDER=stub), KAFKA_BOOTSTRAP=localhost:9092
 .venv/Scripts/desk-seed             # five synthetic letters
 .venv/Scripts/desk-api              # http://localhost:8000/docs
-.venv/Scripts/desk-triage-worker    # proposals appear on the cases
-.venv/Scripts/desk-clock-worker     # fires clock.due events as dates pass
 ```
+
+Then one process per role (Kafka mode):
+
+```bash
+desk-worker relay          # outbox → topic
+desk-worker clock          # sweeps due clocks (+ relay)
+desk-worker triage-worker  # and letter-worker, ledger-worker, credit-worker, saga-worker
+```
+
+Without Kafka, `desk-worker all` runs the sweep and every handler in one loop.
 
 `TRIAGE_PROVIDER` picks the backend: `claude` (Anthropic key), `gemini` (AI Studio key, free tier), or `stub`. The stub swaps the model for keyword rules (same proposal contract, every value still quotes the letter) so the whole pipeline runs in CI and on a laptop without a key. Tests need no database or API key:
 
@@ -114,9 +167,7 @@ cd backend && .venv/Scripts/python -m pytest
 
 ## Roadmap
 
-- **Step 2 — split and stream.** Outbox relay becomes a Kafka producer keyed by `aggregate_id`; the workers
-  become consumer groups; a persisted *Respond* saga (render letter → deliver → release credit hold → close)
-  with compensations. `outbox.consume()` already dedupes, so handler code does not change.
+- ~~Step 2 — split and stream.~~ Done: Kafka relay, five consumer groups, Respond saga with compensation.
 - **Step 3 — run it somewhere.** `k8s/` manifests: API and worker Deployments, clock sweep as a CronJob, HPA
   on the triage worker (the only component whose cost is the model call), StatefulSets for Postgres/Kafka.
 - **Operator UI.** Next.js queue: cases by due date, proposal with source quotes side-by-side with the

@@ -30,6 +30,7 @@ class L2Correction(_Fields):
     effective_date: str
     contact_phone: str
     additional_errors: list[dict] = Field(default_factory=list)
+    adjustment_amount: str | None = Field(default=None, pattern=r"^-?\d+(\.\d{1,2})?$")  # posted to the ledger by the saga
 
 
 class L3NoError(_Fields):
