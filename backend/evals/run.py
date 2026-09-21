@@ -83,7 +83,7 @@ def main(providers: list[str]) -> None:
     providers = [p for p in providers if p != "--rescore"]
     for prov in providers:
         if rescore:  # re-score saved results against (possibly corrected) labels without new API calls
-            saved = {json.loads(l)["id"]: json.loads(l) for l in (HERE / f"results-{prov}.jsonl").read_text(encoding="utf-8").splitlines() if l}
+            saved = {json.loads(line)["id"]: json.loads(line) for line in (HERE / f"results-{prov}.jsonl").read_text(encoding="utf-8").splitlines() if line}
             for L in LETTERS:
                 saved[L["id"]]["expected"] = {k: L.get(k) for k in ("case_type", "error_category", "rfi_category", "loan", "exceptions")}
             rows = [saved[L["id"]] for L in LETTERS]
