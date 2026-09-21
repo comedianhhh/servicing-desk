@@ -24,7 +24,7 @@ def session() -> Session:
 @pytest.fixture(autouse=True)
 def isolated_settings(monkeypatch):
     """Tests never call a model and never see the developer's .env (fail rates, Kafka, closed days)."""
-    monkeypatch.setattr(handlers, "propose", lambda body: (TriageProposal.model_validate(proposal_dict()), "fake"))
+    monkeypatch.setattr(handlers, "propose", lambda body, **kw: (TriageProposal.model_validate(proposal_dict()), "fake"))
     monkeypatch.setattr(settings, "letter_fail_rate", 0.0)
     monkeypatch.setattr(settings, "saga_max_attempts", 3)
     monkeypatch.setattr(settings, "kafka_bootstrap", None)

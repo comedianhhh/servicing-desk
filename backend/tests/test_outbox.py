@@ -31,7 +31,7 @@ def test_relay_delivers_once_per_group_even_if_registered_late(session, case):
 
 
 def test_handler_failure_is_not_marked_processed(session, case, monkeypatch):
-    def boom(body):
+    def boom(body, **kw):
         raise RuntimeError("model down")
 
     monkeypatch.setattr(handlers, "propose", boom)

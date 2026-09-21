@@ -25,7 +25,7 @@ def on_correspondence_received(session: Session, event: OutboxEvent) -> None:
     if case is None or case.proposals:
         return
     try:
-        proposal, model = propose(case.correspondence.body)
+        proposal, model = propose(case.correspondence.body, received_on=case.correspondence.received_on)
     except anthropic.RateLimitError as e:
         retry_after = int(e.response.headers.get("retry-after", "30"))
         log.warning("rate limited; sleeping %ss before redelivery", retry_after)

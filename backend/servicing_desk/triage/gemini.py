@@ -8,19 +8,20 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import date
 
 from google import genai
 from google.genai import errors, types
 
 from ..config import settings
-from .agent import SYSTEM
+from .agent import SYSTEM, wrap
 from .schema import TriageProposal
 
 log = logging.getLogger("gemini")
 RETRY_STATUS = {429, 503}
 
 
-def propose(letter_text: str, *, client: genai.Client | None = None) -> tuple[TriageProposal, str]:
+def propose(letter_text: str, received_on: date | None = None, *, client: genai.Client | None = None) -> tuple[TriageProposal, str]:
     client = client or genai.Client(api_key=settings.gemini_api_key)
     # The free tier answers 503 "high demand" in bursts; a short backoff keeps a busy minute from being
     # treated as a poisoned message by the worker. Anything else propagates.
@@ -28,7 +29,7 @@ def propose(letter_text: str, *, client: genai.Client | None = None) -> tuple[Tr
         try:
             response = client.models.generate_content(
                 model=settings.gemini_model,
-                contents=f"<letter>\n{letter_text}\n</letter>",
+                contents=wrap(letter_text, received_on),
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM,
                     response_mime_type="application/json",

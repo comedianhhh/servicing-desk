@@ -7,6 +7,8 @@ proposal, and every value it contains must quote the letter.
 
 from __future__ import annotations
 
+from datetime import date
+
 import anthropic
 
 from ..config import settings
@@ -29,26 +31,35 @@ Decide what the letter is:
   for other information.
 - LOSS_MIT: a request for a modification, forbearance, or other loss mitigation option (§1024.41).
 - NOT_COVERED: payment coupons, general complaints without an asserted error or request, marketing, etc.
+  Complaints about origination, underwriting, the interest rate, or other loan terms are not servicing errors
+  (comment 35(b)-2) even when the letter says "error" or "wrong".
 
 Extract the three elements (§1024.35(a)/§1024.36(a)): borrower name, information identifying the loan,
 and the asserted error or requested information. For every extracted value quote the exact words from the
 letter. If the letter does not contain a value, set it to null — never infer or invent it.
 
 Flag exception candidates for the operator: OVERBROAD if you cannot identify a specific error or request;
-CONFIDENTIAL / IRRELEVANT / BURDENSOME for RFIs (§1024.36(f)(1)); DUPLICATIVE and UNTIMELY only if the letter
-itself references a prior request or a transfer/discharge — the operator checks those against the file.
+CONFIDENTIAL / IRRELEVANT / BURDENSOME for RFIs (§1024.36(f)(1)); DUPLICATIVE only if the letter itself references
+a prior request; UNTIMELY only if the letter itself says the loan was paid off, discharged, or transferred away
+more than a year before the `received` date on the letter tag — the operator checks both against the file.
 
 You are proposing, not deciding. An operator approves or corrects every field."""
 
 
-def propose(letter_text: str, *, client: anthropic.Anthropic | None = None) -> tuple[TriageProposal, str]:
+def wrap(letter_text: str, received_on: date | None) -> str:
+    """The receipt date rides on the tag: UNTIMELY is 'more than a year after payoff/transfer', and a model
+    without today's date can only guess. Shared by every model provider so they see the same input."""
+    return f'<letter received="{received_on or date.today()}">\n{letter_text}\n</letter>'
+
+
+def propose(letter_text: str, received_on: date | None = None, *, client: anthropic.Anthropic | None = None) -> tuple[TriageProposal, str]:
     """Returns (proposal, model_id). Raises anthropic.* errors to the caller; the worker decides on retry."""
     client = client or anthropic.Anthropic(api_key=settings.anthropic_api_key)
     response = client.messages.parse(
         model=settings.triage_model,
         max_tokens=4096,
         system=SYSTEM,
-        messages=[{"role": "user", "content": f"<letter>\n{letter_text}\n</letter>"}],
+        messages=[{"role": "user", "content": wrap(letter_text, received_on)}],
         output_format=TriageProposal,
     )
     return response.parsed_output, settings.triage_model

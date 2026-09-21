@@ -5,6 +5,7 @@ compete with one."""
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from .schema import Extracted, ThreeElements, TriageProposal
 
@@ -30,7 +31,7 @@ def _find(pattern: str, text: str, flags=re.I) -> Extracted:
     return Extracted(value=m.group(1).strip(), source_quote=m.group(0).strip())
 
 
-def propose(letter_text: str) -> tuple[TriageProposal, str]:
+def propose(letter_text: str, received_on: date | None = None) -> tuple[TriageProposal, str]:
     case_type, err, rfi = "NOT_COVERED", None, None
     for pattern, ct, ec, rc in _RULES:
         if re.search(pattern, letter_text, re.I):
