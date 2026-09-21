@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     letter_fail_rate: float = 0.0  # 0..1, simulated mail-vendor failures for the saga demo
     saga_max_attempts: int = 3
     docs_dir: str = "./documents"  # content-addressed archive of original scans/uploads (S3 later)
+    metrics_port: int | None = None  # workers expose /metrics here; the API serves it on its own port
     ocr_provider: str = "none"  # gemini | tesseract | none — only for images and PDFs without a text layer
 
     @field_validator("creditor_closed_days", mode="before")

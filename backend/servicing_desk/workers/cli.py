@@ -15,6 +15,7 @@ from ..config import settings
 from ..db import session_scope
 from ..handlers import REGISTRY
 from ..outbox import relay_once as inprocess_relay
+from ..telemetry import configure_logging, serve_metrics
 from .clock_worker import sweep
 
 log = logging.getLogger("desk-worker")
@@ -37,7 +38,8 @@ def _loop(step, label: str, once: bool = False) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    configure_logging()
+    serve_metrics(settings.metrics_port)
     args = argv if argv is not None else sys.argv[1:]
     once = "--once" in args
     args = [a for a in args if a != "--once"]

@@ -21,13 +21,14 @@ from datetime import UTC, datetime
 
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 from confluent_kafka.admin import AdminClient, NewTopic
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .config import settings
 from .db import session_scope
 from .models import OutboxEvent
 from .outbox import consume
+from .telemetry import OUTBOX_BACKLOG, RELAY_PUBLISHED
 
 log = logging.getLogger("bus")
 
@@ -142,6 +143,9 @@ def relay_once(session: Session, limit: int = 200) -> int:
         if delivered.get(ev.id):
             ev.published_at = now
             n += 1
+    RELAY_PUBLISHED.inc(n)
+    session.flush()
+    OUTBOX_BACKLOG.set(session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.published_at.is_(None))) or 0)
     return n
 
 

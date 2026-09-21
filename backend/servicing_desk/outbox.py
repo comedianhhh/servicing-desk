@@ -17,6 +17,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
 from .models import OutboxEvent, ProcessedEvent
+from .telemetry import EVENTS_CONSUMED, HANDLER_SECONDS, bind, timed
 
 Handler = Callable[[Session, OutboxEvent], None]
 
@@ -25,9 +26,17 @@ def consume(session: Session, consumer: str, event: OutboxEvent, fn: Handler) ->
     """Run `fn` at most once per (consumer, event). Returns False if it was already processed."""
     seen = session.get(ProcessedEvent, {"consumer": consumer, "event_id": event.id})
     if seen is not None:
+        EVENTS_CONSUMED.labels(consumer, event.event_type, "deduped").inc()
         return False
-    fn(session, event)
+    with bind(group=consumer, event_id=event.id, event_type=event.event_type, case_id=event.aggregate_id):
+        try:
+            with timed(HANDLER_SECONDS, group=consumer, event_type=event.event_type):
+                fn(session, event)
+        except Exception:
+            EVENTS_CONSUMED.labels(consumer, event.event_type, "failed").inc()
+            raise
     session.add(ProcessedEvent(consumer=consumer, event_id=event.id))
+    EVENTS_CONSUMED.labels(consumer, event.event_type, "handled").inc()
     return True
 
 

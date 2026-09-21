@@ -8,6 +8,10 @@
 #
 # Consumers have no readiness probe on purpose: they receive no traffic. Kafka decides who is a member.
 # Liveness is the process being alive; a stuck consumer is caught by max.poll.interval on the broker side.
+#
+# Every worker serves Prometheus metrics on :9100 (METRICS_PORT in the ConfigMap); the pod annotations are
+# what a standard kube-prometheus scrape config keys on. The clock CronJob does not: a one-shot pod is gone
+# before a scrape; its numbers (clocks fired, overdue) are pushed nowhere and read from the audit log instead.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,12 +23,14 @@ spec:
   template:
     metadata:
       labels: { app: relay, tier: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9100" }
     spec:
       containers:
         - name: relay
           image: servicing-desk
           imagePullPolicy: IfNotPresent
           command: ["desk-worker", "relay"]
+          ports: [{ containerPort: 9100, name: metrics }]
           envFrom:
             - configMapRef: { name: desk-config }
           resources:
@@ -42,6 +48,7 @@ spec:
   template:
     metadata:
       labels: { app: triage-worker, tier: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9100" }
     spec:
       terminationGracePeriodSeconds: 60   # let an in-flight model call finish and commit its offset
       containers:
@@ -49,6 +56,7 @@ spec:
           image: servicing-desk
           imagePullPolicy: IfNotPresent
           command: ["desk-worker", "triage-worker"]
+          ports: [{ containerPort: 9100, name: metrics }]
           envFrom:
             - configMapRef: { name: desk-config }
             - secretRef: { name: desk-keys }
@@ -67,12 +75,14 @@ spec:
   template:
     metadata:
       labels: { app: letter-worker, tier: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9100" }
     spec:
       containers:
         - name: worker
           image: servicing-desk
           imagePullPolicy: IfNotPresent
           command: ["desk-worker", "letter-worker"]
+          ports: [{ containerPort: 9100, name: metrics }]
           envFrom:
             - configMapRef: { name: desk-config }
           resources:
@@ -90,12 +100,14 @@ spec:
   template:
     metadata:
       labels: { app: ledger-worker, tier: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9100" }
     spec:
       containers:
         - name: worker
           image: servicing-desk
           imagePullPolicy: IfNotPresent
           command: ["desk-worker", "ledger-worker"]
+          ports: [{ containerPort: 9100, name: metrics }]
           envFrom:
             - configMapRef: { name: desk-config }
           resources:
@@ -113,12 +125,14 @@ spec:
   template:
     metadata:
       labels: { app: credit-worker, tier: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9100" }
     spec:
       containers:
         - name: worker
           image: servicing-desk
           imagePullPolicy: IfNotPresent
           command: ["desk-worker", "credit-worker"]
+          ports: [{ containerPort: 9100, name: metrics }]
           envFrom:
             - configMapRef: { name: desk-config }
           resources:
@@ -136,12 +150,14 @@ spec:
   template:
     metadata:
       labels: { app: saga-worker, tier: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9100" }
     spec:
       containers:
         - name: worker
           image: servicing-desk
           imagePullPolicy: IfNotPresent
           command: ["desk-worker", "saga-worker"]
+          ports: [{ containerPort: 9100, name: metrics }]
           envFrom:
             - configMapRef: { name: desk-config }
           resources:

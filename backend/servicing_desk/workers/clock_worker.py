@@ -5,14 +5,18 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..models import Clock, ClockStatus
 from ..state_machine import audit, emit
+from ..telemetry import CLOCKS_FIRED, CLOCKS_OVERDUE
 
 
 def sweep(session, today: date | None = None) -> int:
     today = today or date.today()
+    # Due *before* today and still pending means a sweep was missed — the number that should always be 0.
+    overdue = session.scalar(select(func.count()).select_from(Clock).where(Clock.status == ClockStatus.PENDING, Clock.due_on < today)) or 0
+    CLOCKS_OVERDUE.set(overdue)
     stmt = (
         select(Clock)
         .where(Clock.status == ClockStatus.PENDING, Clock.due_on <= today)
@@ -25,5 +29,6 @@ def sweep(session, today: date | None = None) -> int:
         payload = {"clock_id": clock.id, "kind": clock.kind.value, "due_on": clock.due_on.isoformat(), "citation": clock.citation}
         emit(session, clock.case, "clock.due", payload)
         audit(session, clock.case_id, "system:clock-worker", "clock.due", payload)
+        CLOCKS_FIRED.labels(clock.kind.value).inc()
         n += 1
     return n

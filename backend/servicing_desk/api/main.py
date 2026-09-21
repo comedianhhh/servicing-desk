@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import date
 
 import uvicorn
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from .. import service
 from ..db import engine, get_session
 from ..models import AuditLog, Base, Case, CaseStatus, CreditHold, Document, LedgerAdjustment, Proposal, Saga
 from ..state_machine import TransitionError, transition
+from ..telemetry import HTTP_REQUESTS, HTTP_SECONDS, configure_logging
 
 
 @asynccontextmanager
@@ -24,6 +27,23 @@ async def _lifespan(_: FastAPI):
 
 
 app = FastAPI(title="servicing-desk", version="0.1.0", lifespan=_lifespan)
+
+
+@app.middleware("http")
+async def _http_metrics(request: Request, call_next):
+    # Label by route template, not path: /cases/{case_id} is one series, not one per case.
+    start = time.perf_counter()
+    response = await call_next(request)
+    route = getattr(request.scope.get("route"), "path", request.url.path)
+    if route != "/metrics":
+        HTTP_REQUESTS.labels(request.method, route, str(response.status_code)).inc()
+        HTTP_SECONDS.labels(request.method, route).observe(time.perf_counter() - start)
+    return response
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 class IntakeIn(BaseModel):
@@ -251,4 +271,5 @@ def do_transition(case_id: str, body: TransitionIn, session: Session = Depends(g
 
 
 def run() -> None:
+    configure_logging()
     uvicorn.run("servicing_desk.api.main:app", host="0.0.0.0", port=8000, reload=os.environ.get("DESK_RELOAD") == "1")

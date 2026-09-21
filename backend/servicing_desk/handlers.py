@@ -9,10 +9,12 @@ import time
 import anthropic
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .effects import CREDIT_HANDLERS, LEDGER_HANDLERS, LETTER_HANDLERS
 from .models import Case, OutboxEvent
 from .saga import ORCHESTRATOR_HANDLERS
 from .service import record_proposal
+from .telemetry import TRIAGE_SECONDS, TRIAGE_TOTAL, timed
 from .triage import propose
 
 log = logging.getLogger("triage-worker")
@@ -24,19 +26,28 @@ def on_correspondence_received(session: Session, event: OutboxEvent) -> None:
     case = session.get(Case, event.payload["case_id"])
     if case is None or case.proposals:
         return
+    provider = settings.triage_provider
     try:
-        proposal, model = propose(case.correspondence.body, received_on=case.correspondence.received_on)
+        with timed(TRIAGE_SECONDS, provider=provider):
+            proposal, model = propose(case.correspondence.body, received_on=case.correspondence.received_on)
     except anthropic.RateLimitError as e:
+        TRIAGE_TOTAL.labels(provider, "error").inc()
         retry_after = int(e.response.headers.get("retry-after", "30"))
         log.warning("rate limited; sleeping %ss before redelivery", retry_after)
         time.sleep(retry_after)
         raise
     except anthropic.APIStatusError as e:
+        TRIAGE_TOTAL.labels(provider, "error").inc()
         log.error("provider status %s on case %s: %s", e.status_code, case.id, e.message)
         raise
     except anthropic.APIConnectionError:
+        TRIAGE_TOTAL.labels(provider, "error").inc()
         log.warning("provider unreachable; will retry")
         raise
+    except Exception:
+        TRIAGE_TOTAL.labels(provider, "error").inc()
+        raise
+    TRIAGE_TOTAL.labels(provider, "ok").inc()
     record_proposal(session, case, proposal, model)
 
 

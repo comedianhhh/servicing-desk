@@ -24,6 +24,7 @@ from . import letters as letters_mod
 from .config import settings
 from .models import Case, CaseStatus, LedgerAdjustment, Letter, OutboxEvent, Saga, SagaState
 from .state_machine import audit, emit, transition
+from .telemetry import SAGA_TOTAL
 
 log = logging.getLogger("saga")
 
@@ -102,6 +103,7 @@ def on_letter_delivered(session: Session, event: OutboxEvent) -> None:
     # The saga acts for the operator who started it; the actor string keeps both facts.
     transition(session, case, CaseStatus.RESPONDED, actor=f"saga:{saga.started_by}", detail={"saga_id": saga.id})
     saga.state = SagaState.DONE
+    SAGA_TOTAL.labels("done").inc()
     audit(session, case.id, "system:saga", "saga.done", {"saga_id": saga.id})
 
 
@@ -137,6 +139,7 @@ def on_ledger_reversed(session: Session, event: OutboxEvent) -> None:
 
 def _compensated(session: Session, case: Case, saga: Saga) -> None:
     saga.state = SagaState.COMPENSATED
+    SAGA_TOTAL.labels("compensated").inc()
     audit(session, case.id, "system:saga", "saga.compensated", {"saga_id": saga.id, "needs_attention": True})
     emit(session, case, "saga.compensated", {"saga_id": saga.id, "kind": saga.kind})
 
