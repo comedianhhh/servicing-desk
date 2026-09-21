@@ -1,10 +1,14 @@
-"""Score every triage provider against the labeled set. Usage: python -m evals.run [--rescore] [stub gemini claude]
+"""Score every triage provider against the labeled set. Usage: python -m evals.run [--rescore] [stub gemini score hybrid]
 
 Reports, per provider: case-type accuracy (overall and per tier — plain / trap / hard), category accuracy on
 the letters where the type was right, how often the loan identifier was recovered when present and *not*
 invented when absent, whether flagged exceptions were flagged, and whether every `source_quote` is really in
 the letter. Writes evals/results-<provider>.jsonl so individual misses can be read. Model providers cost API
 calls — run them on purpose. `--rescore` re-scores a saved results file against the current labels.
+
+Then, for every provider, whether its `confidence` means anything: accuracy per confidence band, and the
+review-queue table — at each threshold, how many letters would be auto-routed and how many of those are wrong.
+Providers that score (`score`, `hybrid`) also report position flips and prefill latency.
 """
 
 from __future__ import annotations
@@ -65,9 +69,11 @@ def _run(provider: str) -> list[dict]:
                     "exceptions": d["exception_candidates"],
                     "confidence": d["confidence"],
                     "quotes": _quotes(d),
+                    "scores": getattr(p, "_scores", None),  # scoring providers: distributions + diagnostics
                 },
             }
         )
+        print(f"  {L['id']:<34} {d['case_type']:<15} {d['confidence']:.2f}", flush=True)
     (HERE / f"results-{provider}.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
     return rows
 
@@ -117,6 +123,45 @@ def _score(rows: list[dict]) -> dict:
     }
 
 
+def _right(r: dict) -> bool:
+    return r["got"]["case_type"] in (r["expected"]["case_type"], r["expected"].get("alt_case_type"))
+
+
+def _auroc(rows: list[dict]) -> float | None:
+    """P(confidence on a right letter > confidence on a wrong one). 0.5 = the number carries nothing."""
+    pos = [r["got"]["confidence"] for r in rows if _right(r)]
+    neg = [r["got"]["confidence"] for r in rows if not _right(r)]
+    if not pos or not neg:
+        return None
+    wins = sum(1.0 if p > n else 0.5 if p == n else 0.0 for p in pos for n in neg)
+    return wins / (len(pos) * len(neg))
+
+
+def _calibration(rows: list[dict]) -> None:
+    n = len(rows)
+    print("  confidence band       letters   right   accuracy")
+    for lo, hi in ((0.0, 0.7), (0.7, 0.9), (0.9, 0.99), (0.99, 1.01)):
+        rs = [r for r in rows if lo <= r["got"]["confidence"] < hi]
+        if rs:
+            k = sum(_right(r) for r in rs)
+            print(f"  [{lo:.2f}, {hi if hi <= 1 else 1.0:.2f}{')' if hi <= 1 else ']'}{'':<9}{len(rs):>5}{k:>8}{k / len(rs):>11.2f}")
+    auroc = _auroc(rows)
+    print(f"  AUROC(confidence -> right)  {auroc:.2f}" if auroc is not None else "  AUROC  n/a (no misses)")
+    print("  auto-route if conf >=   covered   wrong among covered")
+    for th in (0.5, 0.7, 0.8, 0.9, 0.95, 0.99):
+        cov = [r for r in rows if r["got"]["confidence"] >= th]
+        wrong = sum(not _right(r) for r in cov)
+        print(f"  {th:<22} {len(cov):>3}/{n:<5} {wrong:>3}")
+    scored = [r for r in rows if r["got"].get("scores")]
+    if scored:
+        flips = sum(r["got"]["scores"]["case_type"]["flips"] for r in scored)
+        mass = sum(r["got"]["scores"]["case_type"]["label_mass"] for r in scored) / len(scored)
+        lat = sorted(r["got"]["scores"]["latency_ms"] for r in scored)
+        pre = sum(r["got"]["scores"]["prefills"] for r in scored) / len(scored)
+        print(f"  position flips (case_type)  {flips} across {len(scored)} letters; mean label mass {mass:.3f}")
+        print(f"  prefills/letter {pre:.0f}; scoring latency median {lat[len(lat) // 2]:.0f} ms, max {lat[-1]:.0f} ms")
+
+
 def main(providers: list[str]) -> None:
     rescore = "--rescore" in providers
     providers = [p for p in providers if p != "--rescore"]
@@ -137,6 +182,8 @@ def main(providers: list[str]) -> None:
             print(f"  {k:<26} {s[k]}")
         for m in s["misses"]:
             print("   miss:", m)
+        print(f"\n-- is `confidence` information? ({prov})")
+        _calibration(rows)
 
 
 if __name__ == "__main__":

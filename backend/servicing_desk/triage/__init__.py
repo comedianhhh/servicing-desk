@@ -15,6 +15,12 @@ def propose(letter_text: str, received_on: date | None = None) -> tuple[TriagePr
         from .stub import propose as _p
     elif settings.triage_provider == "gemini":
         from .gemini import propose as _p
+    elif settings.triage_provider in ("score", "hybrid"):
+        from functools import partial
+
+        from .score import propose as _s
+
+        _p = partial(_s, base="gemini" if settings.triage_provider == "hybrid" else "stub")
     else:
         from .agent import propose as _p
     return _p(letter_text, received_on=received_on or date.today())

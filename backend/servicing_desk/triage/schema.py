@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class Extracted(BaseModel):
@@ -36,3 +36,6 @@ class TriageProposal(BaseModel):
     mentions_foreclosure_sale_date: Extracted
     confidence: float = Field(ge=0, le=1)
     rationale: str = Field(description="One or two sentences the operator can verify against the letter.")
+    # Set by the scoring provider: per-field probability distributions and diagnostics. Not part of the
+    # model-facing schema; read by the evals.
+    _scores: dict | None = PrivateAttr(default=None)

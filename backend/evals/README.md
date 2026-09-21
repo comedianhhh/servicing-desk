@@ -88,7 +88,37 @@ distribution over `case_type` rather than a token stream and a guess — and the
 implies: a probabilistic classifier for the enumerated fields (type, category, flags), the LLM for the quoted
 extractions only. That is the next experiment, keyed on access to such a model.
 
+## Vote share instead of self-report (`votes.py`)
+
+Same 42 letters, each sampled **5 times at temperature 1.0** (210 calls, ~40 min on the free tier with 429
+backoff); the winning case type's vote share is the probability. `python -m evals.votes 5`:
+
+| vote share | letters | majority right | mean self-reported confidence |
+|---|---|---|---|
+| 5/5 | 41 | 41 | 0.987 |
+| 4/5 | 1 | **0** | 0.910 |
+
+Majority-vote accuracy 41/42 (plain 20/20 · trap 7/8 · hard 14/14 with alternates). The one letter the
+samples disagreed on — `trap-overbroad`, 4× NOT_COVERED, 1× NOE — is the one letter the majority got wrong.
+
+Three honest readings:
+
+1. **The signal is real and it is one data point.** On this set, "not unanimous" and "wrong" are the same
+   letter. That is what a usable confidence looks like — a review queue keyed on *any disagreement* would
+   have caught the miss — but a bucket with n=1 is a hint, not a calibration curve.
+2. **flash-lite at temperature 1 is nearly deterministic here.** 41 unanimous out of 42 means the sampling
+   has almost no resolution: it cannot say 0.7 vs 0.9, only "sure" vs "not sure". Finer probabilities need
+   either perturbation (paraphrased letters, shuffled option order) or a model that outputs a distribution
+   directly — the decision-model experiment, still keyed on access.
+3. **Self-report was not entirely blind either.** Across 210 samples the lowest confidence the model ever
+   wrote was 0.85, on the NOE sample of `trap-overbroad`; the letter's mean, 0.91, is the lowest of the 42.
+   But `not-covered-coupon` and `hard-informal-owner` (both right, 5/5) sit at 0.90 too, so a threshold that
+   catches the miss also catches two correct letters. Vote share separates them; self-report does not.
+
+Cost of the signal: 5× the model calls. For a desk that triages hundreds of letters a day on a free-tier
+model that is a real cost; for one that triages dozens it is the cheapest calibration available.
+
 ## Reading the results file
 
 One row per letter: `expected` (labels), `got` (type, category, loan value, exceptions, confidence, quotes).
-`results-gemini-round1.jsonl` is kept so the round-1 → round-2 regression can be diffed.
+`results-gemini-round1.jsonl` is kept so the round-1 → round-2 regression can be diffed. `results-votes.jsonl` holds every sample of the vote run.

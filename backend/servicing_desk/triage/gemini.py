@@ -21,7 +21,10 @@ log = logging.getLogger("gemini")
 RETRY_STATUS = {429, 503}
 
 
-def propose(letter_text: str, received_on: date | None = None, *, client: genai.Client | None = None) -> tuple[TriageProposal, str]:
+def propose(
+    letter_text: str, received_on: date | None = None, *, client: genai.Client | None = None, temperature: float = 0
+) -> tuple[TriageProposal, str]:
+    """`temperature` is 0 for the desk (one deterministic proposal) and >0 only for evals/votes.py, which samples."""
     client = client or genai.Client(api_key=settings.gemini_api_key)
     # The free tier answers 503 "high demand" in bursts; a short backoff keeps a busy minute from being
     # treated as a poisoned message by the worker. Anything else propagates.
@@ -34,7 +37,7 @@ def propose(letter_text: str, received_on: date | None = None, *, client: genai.
                     system_instruction=SYSTEM,
                     response_mime_type="application/json",
                     response_schema=TriageProposal,
-                    temperature=0,
+                    temperature=temperature,
                 ),
             )
             break

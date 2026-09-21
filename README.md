@@ -262,7 +262,10 @@ quoted exactly as scanned.
 the three misses. The UI shows it and nothing acts on it. A calibrated probability needs a model that
 produces one — a decision model returning a distribution over `case_type` rather than a token stream and a
 guess — and the split that implies: a probabilistic classifier for the enumerated fields, the LLM only for
-the quoted extractions. That is the next experiment.
+the quoted extractions. The cheap version of that experiment is done (`evals/votes.py`): sample each letter
+five times at temperature 1 and use the vote share. The one letter the samples disagreed on was the one
+letter the majority got wrong — a real signal, one data point, and almost no resolution because the model
+is nearly deterministic even at temperature 1. Details in `backend/evals/README.md`.
 
 ### Knowing what it is doing
 
