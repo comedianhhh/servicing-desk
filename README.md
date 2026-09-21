@@ -265,7 +265,10 @@ guess — and the split that implies: a probabilistic classifier for the enumera
 the quoted extractions. The cheap version of that experiment is done (`evals/votes.py`): sample each letter
 five times at temperature 1 and use the vote share. The one letter the samples disagreed on was the one
 letter the majority got wrong — a real signal, one data point, and almost no resolution because the model
-is nearly deterministic even at temperature 1. Details in `backend/evals/README.md`.
+is nearly deterministic even at temperature 1. The local version is also done (`triage/score.py`, evals
+round 4): next-token scoring on a 4B model gives a distribution that finally spreads — 13 letters below
+0.90, a 29/13 auto-route/review split at 0.90 — but two misses score 1.00 in every option order, which no
+calibration fixes. Details in `backend/evals/README.md`.
 
 ### Knowing what it is doing
 

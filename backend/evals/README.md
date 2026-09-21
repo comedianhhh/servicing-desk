@@ -1,7 +1,8 @@
 # Triage evals
 
-`python -m evals.run stub gemini claude` scores each provider on the labeled set in `letters.py` and writes
-`results-<provider>.jsonl`. `--rescore` re-scores a saved file against the current labels without API calls.
+`python -m evals.run stub gemini claude score hybrid` scores each provider on the labeled set in `letters.py`
+and writes `results-<provider>.jsonl`. `--rescore` re-scores a saved file against the current labels without
+API calls. `score` and `hybrid` need a local `llama-server` (see "Scoring instead of generating").
 
 ## The set
 
@@ -23,6 +24,8 @@ The hard tier was added after the first 28 scored 28/28 on Gemini. A set the mod
 - `category_acc_given_type` — (b)(n) or RFI category, on letters where the type was right (it sets the clock)
 - `loan_recovered` / `loan_not_invented` — the loan identifier when present; `null` when absent
 - `exceptions_flagged` — expected flags are a subset of returned flags (`A|B` = either counts)
+- `exceptions_not_invented` — returned flags are a subset of the allowed ones; a flag the label does not
+  permit is noise the operator has to clear (added in round 4, when a provider produced a lot of it)
 - `quotes_verbatim` — every `source_quote` appears in the letter, whitespace-insensitive. This is the metric
   behind rule 1 of the README: a value with no quote, or a "corrected" quote, is an invented value.
 
@@ -118,7 +121,95 @@ Three honest readings:
 Cost of the signal: 5× the model calls. For a desk that triages hundreds of letters a day on a free-tier
 model that is a real cost; for one that triages dozens it is the cheapest calibration available.
 
+## Scoring instead of generating (`score`, `hybrid`) — round 4
+
+The previous section ended on "a model that outputs a distribution directly … still keyed on access". It is
+not keyed on access. Any causal LM produces, at the position right after the prompt, one logit per vocabulary
+token; if the allowed answers are single tokens, reading those logits and normalising them among themselves
+*is* a distribution over the answers — no decoding, no JSON, one prefill. `triage/score.py` does this against
+a local llama.cpp server (`llama-server` with `Qwen3-4B-Instruct-2507` Q8, 16 GB consumer GPU, no key):
+
+1. Render `system + letter + question + "A = …, B = …"` through the model's own chat template
+   (`/apply-template`), so the scored position is the first assistant token, not a guess at it.
+2. Check each label is exactly one token (`/tokenize`; `A` is id 32, `\nA` is `[198, 32]` — the check exists
+   because the difference is invisible in the prompt).
+3. `/completion` with `n_predict=1, n_probs=20`; softmax over the label tokens only.
+4. Repeat under 5 rotations of the option order and average. Small models prefer some letters; averaging over
+   orders turns that into a measurable number (`flips`, below) instead of a hidden bias.
+
+The enumerated fields — `case_type`, the (b)(n) / RFI category, each exception as a yes/no — come from
+scoring; ~20 prefills per letter. The quoted extractions cannot come from scoring (the answers are not known
+in advance) and stay with the stub (`score`) or Gemini (`hybrid`). `confidence` becomes the averaged top-1
+probability of `case_type`.
+
+### Results — Qwen3-4B-Instruct Q8 via llama.cpp, 42 letters
+
+| | stub | gemini flash-lite | **score** |
+|---|---|---|---|
+| type_acc | 21/42 (+1 alt) | 39/42 (+2 alt) | **35/42 (+2 alt)** |
+| by tier | 13/20 · 4/8 · 5/14 | 20/20 · 7/8 · 14/14 | **19/20 · 6/8 · 12/14** |
+| category given type | 5/13 | 29/29 | **26/26** |
+| exceptions flagged / not invented | 2/5 · 25/42 | 4/5 · 41/42 | **3/5 · 25/42** |
+| model calls per letter | 0 | 1 generation (~2–4 s) | 20 prefills (~1 s, median 1017 ms) |
+
+Position flips: 14 across 42 letters (a rotation whose winner differed from the averaged winner). Mean raw
+probability mass on the label tokens: 1.000 — the model never wanted to say anything but a letter.
+
+**Is the number information now?** Partly, and the way it fails is more instructive than the way it works.
+
+| confidence band | letters | right | accuracy |
+|---|---|---|---|
+| [0.60, 0.70) | 1 | 1 | 1.00 |
+| [0.70, 0.90) | 12 | 9 | 0.75 |
+| [0.90, 0.99) | 1 | 1 | 1.00 |
+| [0.99, 1.00] | 28 | 26 | 0.93 |
+
+| auto-route if confidence ≥ | covered | wrong among covered |
+|---|---|---|
+| 0.80 | 38/42 | 5 |
+| 0.90 | 29/42 | 2 |
+| 0.99 | 28/42 | 2 |
+
+AUROC (confidence separates right from wrong) 0.64 — against 0.50 for the stub and 0.90 for Gemini's
+self-report (which, read against the alternates, is not as blind as the section above concluded from the
+strict labels: it separates, but only at ≥ 0.99, with everything above 0.90).
+
+1. **The distribution spreads for the first time.** Gemini's self-report never left [0.90, 1.00]; scoring
+   puts 13 letters below 0.90, and 9 of them are right — the "send for review" band finally has letters in
+   it. A threshold of 0.90 would auto-route 29 letters and queue 13, the shape a desk actually wants.
+2. **Two misses are confidently wrong, and they are definitional.** `noe-b10-sale` (a foreclosure-sale
+   error while in loss mitigation) scored LOSS_MIT at 1.00 in every rotation; `hard-rate-complaint` scored
+   NOE at 1.00. No calibration fixes a model that is certain and wrong — that is the model's definition of
+   the category disagreeing with the desk's, the same kind of miss the round-2 prompt sentence fixed for
+   Gemini. Scoring gives a number the desk can act on *only* on letters the model is unsure about; it says
+   nothing about letters it is sure and wrong about. The operator stays.
+3. **The "probability" is a vote share in disguise.** Within one rotation the restricted softmax is almost
+   always one-hot (0.80 = four orders said A, one said B). So what scoring measures on this model is the
+   same thing `votes.py` measured by sampling Gemini five times — disagreement under perturbation — at five
+   prefills instead of five generations, and with the perturbation (option order) chosen rather than random.
+   The resolution is 1/5 per decision; more rotations or paraphrased letters would buy more.
+4. **The binary flags are the weak point, and the eval had no metric for it.** Asked "is this letter
+   OVERBROAD?", the 4B model says yes on 15 of 42 letters, including `payoff-plain` and `rfi-owner`. The
+   existing `exceptions_flagged` only checks that expected flags are present; 25/42 on the new
+   `exceptions_not_invented` is what surfaced the noise (Gemini: 41/42). A yes/no framed as a single
+   statement leans yes; the fix is to score each flag as a choice among "present / not present / cannot
+   tell from the letter", or to raise the threshold per flag from labeled data — and to keep the metric.
+
+### What this buys and what it does not
+
+Scoring is the right tool when the answer set is known and selection is all that is needed; it removes the
+decode loop and gives a distribution the code can threshold. It does not remove the need for definitions
+(the confident misses), for extraction (the quotes), or for the operator (everything the model is sure
+about). What it changes for this desk: the review queue can be keyed on a number that is at least ordered,
+and it costs one local GPU instead of an API key.
+
+Not done, on purpose: the `hybrid` run (Gemini extraction + local decisions) has the same decisions as
+`score` and only changes the extraction columns; a larger local model (8B) to see whether the definitional
+misses are size or prompt; rotations > 5 for finer resolution. Each is one command once the numbers above
+are worth improving on.
+
 ## Reading the results file
 
 One row per letter: `expected` (labels), `got` (type, category, loan value, exceptions, confidence, quotes).
-`results-gemini-round1.jsonl` is kept so the round-1 → round-2 regression can be diffed. `results-votes.jsonl` holds every sample of the vote run.
+`results-gemini-round1.jsonl` is kept so the round-1 → round-2 regression can be diffed. `results-votes.jsonl` holds every sample of the vote run. Rows from `score`/`hybrid` carry `got.scores`: the averaged
+distribution, `flips` and `label_mass` per decision, prefill count and latency.

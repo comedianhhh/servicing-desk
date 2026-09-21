@@ -95,6 +95,9 @@ def _score(rows: list[dict]) -> dict:
     loan_null_ok = [r for r in loan_absent if not r["got"]["loan"]]  # did not invent one
     exc_expected = [r for r in rows if r["expected"]["exceptions"]]
     exc_ok = [r for r in exc_expected if all(set(e.split("|")) & set(r["got"]["exceptions"]) for e in r["expected"]["exceptions"])]
+    # the other direction: a flag the label does not allow is noise the operator has to clear
+    exc_allowed = lambda r: {e for x in (r["expected"]["exceptions"] or []) for e in x.split("|")}  # noqa: E731
+    exc_clean = [r for r in rows if set(r["got"]["exceptions"]) <= exc_allowed(r)]
     quoted = [r for r in rows if "quotes" in r["got"]]  # results written before the check have no quotes
     quoted_ok = [r for r in quoted if not _not_verbatim(r["id"], r["got"]["quotes"])]
     by_tier = {}
@@ -118,6 +121,7 @@ def _score(rows: list[dict]) -> dict:
         "loan_recovered": f"{len(loan_ok)}/{len(loan_present)}",
         "loan_not_invented": f"{len(loan_null_ok)}/{len(loan_absent)}",
         "exceptions_flagged": f"{len(exc_ok)}/{len(exc_expected)}",
+        "exceptions_not_invented": f"{len(exc_clean)}/{n}",
         "quotes_verbatim": f"{len(quoted_ok)}/{len(quoted)}" if quoted else "n/a (results predate the check)",
         "misses": misses,
     }
@@ -178,7 +182,7 @@ def main(providers: list[str]) -> None:
             rows = _run(prov)
         s = _score(rows)
         print(f"\n== {prov} ({rows[0]['model']}) — {s['n']} letters")
-        for k in ("type_acc", "type_acc_by_tier", "category_acc_given_type", "loan_recovered", "loan_not_invented", "exceptions_flagged", "quotes_verbatim"):
+        for k in ("type_acc", "type_acc_by_tier", "category_acc_given_type", "loan_recovered", "loan_not_invented", "exceptions_flagged", "exceptions_not_invented", "quotes_verbatim"):
             print(f"  {k:<26} {s[k]}")
         for m in s["misses"]:
             print("   miss:", m)
