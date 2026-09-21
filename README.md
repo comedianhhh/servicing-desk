@@ -146,7 +146,7 @@ frontend/           Next.js operator UI: queue, case page, proposal review, lett
 k8s/                kustomize tree: StatefulSets, Deployments, CronJob, HPA; deploy.sh tags by content id
   api/main.py       FastAPI: /intake, /intake/document, /documents/{id}, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
 backend/evals/      42 labeled letters in three tiers + runner; README.md is the miss analysis
-backend/tests/      51 tests — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle, auth,
+backend/tests/      53 tests — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle, auth,
                     telemetry (SQLite); relay locking on Postgres (skipped without TEST_DATABASE_URL, run in CI)
 ```
 
