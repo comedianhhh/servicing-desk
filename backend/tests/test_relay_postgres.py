@@ -5,14 +5,16 @@ Skipped unless TEST_DATABASE_URL points at a Postgres database (CI provides one)
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from servicing_desk import service
 from servicing_desk.bus import claim_unpublished
-from servicing_desk.models import Base, OutboxEvent
+from servicing_desk.models import Base, Clock, ClockKind, ClockStatus, OutboxEvent
+from servicing_desk.workers.clock_worker import sweep
 
 URL = os.environ.get("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not URL or not URL.startswith("postgresql"), reason="needs TEST_DATABASE_URL (postgres)")
@@ -84,3 +86,28 @@ def test_marked_rows_are_not_offered_again(pg):
         a.rollback()
     finally:
         a.close()
+
+
+def test_two_sweepers_do_not_fire_the_same_clock_twice(pg):
+    """The clock sweep uses the same SKIP LOCKED clause as the relay; a clock must fire once even if two
+    CronJob pods overlap (concurrencyPolicy: Forbid makes that unlikely, not impossible)."""
+    with pg() as s:
+        case, _ = service.intake(s, body="Loan 1 -- dispute the fee.", channel="mail", received_on=date(2026, 9, 1))
+        for _ in range(4):
+            s.add(Clock(case_id=case.id, kind=ClockKind.ACK, calendar="reg_x_bd", citation="test", due_on=date(2026, 9, 8)))
+        s.commit()
+
+    a, b = pg(), pg()
+    try:
+        _fail_fast(a)
+        assert sweep(a, today=date(2026, 9, 9)) == 4  # transaction open: rows locked, not yet committed
+        _fail_fast(b)
+        assert sweep(b, today=date(2026, 9, 9)) == 0  # skipped, not blocked, not double-fired
+        a.commit()
+        assert sweep(b, today=date(2026, 9, 9)) == 0  # now FIRED, so no longer PENDING
+        b.rollback()
+    finally:
+        a.close()
+        b.close()
+    with pg() as s:
+        assert s.query(Clock).filter(Clock.status == ClockStatus.FIRED).count() == 4

@@ -125,6 +125,13 @@ def readyz(session: Session = Depends(get_session)):
     return {"ok": True}
 
 
+@app.get("/me")
+def me(who: Principal = Reader):
+    """Who the token says you are. The UI shows the role and disables what it cannot do, instead of letting
+    the operator discover a 403 by clicking."""
+    return {"name": who.name, "role": who.role}
+
+
 @app.post("/intake", status_code=201)
 def intake(body: IntakeIn, session: Session = Depends(get_session), who: Principal = Operator):
     case, created = service.intake(session, **body.model_dump())

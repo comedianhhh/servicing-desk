@@ -6,8 +6,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
-import { JSON_HEADERS, asOperator } from "@/app/components/use-operator";
+import { JSON_HEADERS, asOperator, describe, useIdentity } from "@/app/components/use-operator";
 import type { Extracted, Proposal, Proposed } from "@/lib/api";
 
 const CASE_TYPES = ["NOE", "RFI", "PAYOFF_REQUEST", "LOSS_MIT", "NOT_COVERED"];
@@ -37,7 +36,7 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
   const p = proposal.proposed;
   const [form, setForm] = useState<Proposed>(structuredClone(p));
   const [exception, setException] = useState<string>(p.exception_candidates[0] ?? "");
-  const operator = useActingOperator();
+  const { name: operator, role } = useIdentity();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +44,9 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
     setForm({ ...form, three_elements: { ...form.three_elements, [k]: { ...form.three_elements[k], value: v || null } } });
 
   const edited = JSON.stringify(form) !== JSON.stringify(p);
+  // Mirror the API's rule so the button says why before anyone clicks; the API still decides.
+  const allowed = role === "supervisor" || (role === "operator" && !exception);
+  const why = !role ? "no identity" : allowed ? undefined : exception ? `${operator} is ${role}; an exception determination needs supervisor` : `${operator} is ${role}; approving needs operator`;
 
   async function approve() {
     setBusy(true);
@@ -58,7 +60,7 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
     setBusy(false);
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      setError(`${r.status}: ${j.detail ?? "failed"}`);
+      setError(describe(r.status, j));
       return;
     }
     router.refresh();
@@ -68,8 +70,8 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
     <section className="bg-white border border-violet-200 rounded p-4 space-y-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-xs uppercase tracking-wide text-violet-700">Proposal — review before it touches the case</h2>
-        <span className="text-xs text-stone-500">
-          {proposal.model} · confidence {Math.round(p.confidence * 100)}%
+        <span className="text-xs text-stone-400" title="The model's own estimate. On the eval set it never drops below 0.90, including on its misses — nothing in the desk acts on it.">
+          {proposal.model} · self-reported confidence {Math.round(p.confidence * 100)}%
         </span>
       </div>
       <p className="text-sm text-stone-600">{p.rationale}</p>
@@ -133,19 +135,24 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
             ))}
           </select>
           {p.exception_candidates.length > 0 && <span className="ml-2 text-xs text-orange-700">model flagged: {p.exception_candidates.join(", ")}</span>}
+          {exception && (
+            <div className="text-xs text-stone-500 mt-1">
+              Declining under §1024.35(g) / §1024.36(f) is a determination, not a triage edit: it needs a <b>supervisor</b>, skips the
+              acknowledgment, and starts a 5-business-day clock for the determination letter (L5).
+            </div>
+          )}
         </div>
-
-        <label className="text-stone-500">Acting as</label>
-        <OperatorPicker className="w-40" />
       </div>
 
       {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</div>}
       <div className="flex items-center gap-3">
-        <button onClick={approve} disabled={busy} className="rounded bg-violet-700 text-white px-3 py-1.5 text-sm disabled:opacity-50">
-          {exception ? "Send to exception review" : "Approve"}
+        <button onClick={approve} disabled={busy || !allowed} title={why} className="rounded bg-violet-700 text-white px-3 py-1.5 text-sm disabled:opacity-50">
+          {exception ? "Record exception determination" : "Approve"}
           {edited && " (with edits)"}
         </button>
-        <span className="text-xs text-stone-500">Approving sets the clocks. Edits are recorded in the audit trail.</span>
+        <span className="text-xs text-stone-500">
+          {why ?? (exception ? "Recorded as a determination by the acting supervisor." : "Approving sets the clocks. Edits are recorded in the audit trail.")}
+        </span>
       </div>
     </section>
   );

@@ -68,6 +68,13 @@ def test_no_token_is_401_and_unknown_token_is_401(client):
     assert c.get("/healthz").status_code == 200  # probes stay open
 
 
+def test_me_reports_the_token_identity(client):
+    c, _ = client
+    assert c.get("/me", headers=SUP).json() == {"name": "sup-1", "role": "supervisor"}
+    assert c.get("/me", headers=RO).json() == {"name": "ro-1", "role": "readonly"}
+    assert c.get("/me").status_code == 401
+
+
 def test_unconfigured_tokens_is_a_deployment_error_not_open_access(client, monkeypatch):
     c, _ = client
     monkeypatch.setattr(settings, "operator_tokens", "")

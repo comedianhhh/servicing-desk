@@ -6,12 +6,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
-import { JSON_HEADERS, asOperator } from "@/app/components/use-operator";
+import { JSON_HEADERS, asOperator, describe, useIdentity } from "@/app/components/use-operator";
 
 export default function IntakePage() {
   const router = useRouter();
-  const operator = useActingOperator();
+  const { name: operator, role } = useIdentity();
+  const canAct = role === "operator" || role === "supervisor";
   const today = new Date().toISOString().slice(0, 10);
   const [channel, setChannel] = useState("mail");
   const [receivedOn, setReceivedOn] = useState(today);
@@ -36,7 +36,7 @@ export default function IntakePage() {
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) {
-      setMsg({ ok: false, text: `${r.status}: ${typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j)}` });
+      setMsg({ ok: false, text: describe(r.status, j) });
       return;
     }
     setMsg({ ok: true, text: j.created ? `case opened${j.engine ? ` · text via ${j.engine}, ${j.pages} page(s)` : ""}` : "duplicate of an existing case — no new case opened" });
@@ -60,10 +60,6 @@ export default function IntakePage() {
             <span className="text-stone-500">Received on</span>
             <input type="date" className="border rounded px-2 py-1" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />
           </label>
-          <label className="flex items-center gap-2">
-            <span className="text-stone-500">Acting as</span>
-            <OperatorPicker className="px-2 py-1" />
-          </label>
         </div>
         <div>
           <div className="text-stone-500 mb-1">Scan, PDF, or image</div>
@@ -76,9 +72,10 @@ export default function IntakePage() {
           <textarea className="border rounded w-full h-40 px-2 py-1 font-sans" value={text} onChange={(e) => setText(e.target.value)} disabled={!!file} />
         </div>
         {msg && <div className={`rounded px-2 py-1 border ${msg.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-700"}`}>{msg.text}</div>}
-        <button disabled={busy || (!file && text.trim().length === 0)} onClick={submit} className="rounded bg-stone-800 text-white px-3 py-1.5 disabled:opacity-50">
+        <button disabled={busy || !canAct || (!file && text.trim().length === 0)} title={!canAct && role ? `${operator} is ${role}; intake needs operator` : undefined} onClick={submit} className="rounded bg-stone-800 text-white px-3 py-1.5 disabled:opacity-50">
           {busy ? "Working…" : "Open case"}
         </button>
+        {!canAct && role && <span className="ml-3 text-xs text-stone-400">{operator} is {role} — cannot open cases</span>}
       </div>
     </div>
   );

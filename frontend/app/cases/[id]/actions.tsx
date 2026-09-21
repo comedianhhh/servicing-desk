@@ -6,8 +6,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
-import { JSON_HEADERS, asOperator } from "@/app/components/use-operator";
+import { JSON_HEADERS, asOperator, describe, useIdentity } from "@/app/components/use-operator";
 import type { Case, TemplateSpec } from "@/lib/api";
 
 const NEXT: Record<string, { to: string; label: string; needs?: string[] }[]> = {
@@ -32,6 +31,17 @@ const NEXT: Record<string, { to: string; label: string; needs?: string[] }[]> = 
   PAYOFF_REASONABLE_TIME: [{ to: "CLOSED", label: "Payoff statement sent → close", needs: ["PAYOFF"] }],
 };
 
+// What this state means for the person looking at it — the rule behind the step they are about to take.
+const STATE_NOTE: Record<string, string> = {
+  ACK_PENDING: "Acknowledge in writing within 5 business days of receipt (L1), unless the error is fixed first — §1024.35(d), (f)(1).",
+  EXCEPTION_REVIEW: "No acknowledgment on this path. The determination letter (L5) is due within 5 business days of the decision — §1024.35(g)(2) / §1024.36(f)(2). If the exception does not hold, acknowledge instead.",
+  INVESTIGATING: "Respond with a correction (L2), a no-error finding (L3) or the requested information before the response clock; one 15-day extension is available for the 30-day class only (L4).",
+  EXTENDED: "Extension taken. The response is now due on the extended date; no second extension.",
+  RESPONDED: "The borrower may ask for the documents relied upon (15 business days, L6). Otherwise close.",
+  DOCS_REQUESTED: "Provide the relied-upon documents within 15 business days (L6) — §1024.35(e)(4).",
+  PAYOFF_REQUEST: "Payoff statement within 7 creditor business days — Reg Z §1026.36(c)(3). Bankruptcy, foreclosure, reverse mortgage or disaster → reasonable time.",
+};
+
 // Which letters make sense where. Responses go through the saga; the rest are queued directly.
 const LETTERS_FOR: Record<string, string[]> = {
   ACK_PENDING: ["L1"],
@@ -46,7 +56,8 @@ const VIA_SAGA = new Set(["L2", "L3", "RFI_RESPONSE"]);
 
 export function Actions({ c, templates }: { c: Case; templates: Record<string, TemplateSpec> }) {
   const router = useRouter();
-  const operator = useActingOperator();
+  const { name: operator, role } = useIdentity();
+  const canAct = role === "operator" || role === "supervisor";
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const letterChoices = LETTERS_FOR[c.status] ?? [];
@@ -63,7 +74,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) {
-      setMsg({ ok: false, text: `${r.status}: ${typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j)}` });
+      setMsg({ ok: false, text: describe(r.status, j) });
       return false;
     }
     setMsg({ ok: true, text: j.body ?? (j.saga_id ? `saga ${j.saga_id.slice(0, 8)} started at ${j.step}` : "ok") });
@@ -77,10 +88,9 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
     <section className="bg-white border border-stone-200 rounded p-4 space-y-4">
       <div className="flex items-baseline justify-between">
         <h2 className="text-xs uppercase tracking-wide text-stone-500">Actions</h2>
-        <label className="text-xs text-stone-500">
-          acting as <OperatorPicker className="ml-1" />
-        </label>
+        {!canAct && role && <span className="text-xs text-stone-400">{operator} is {role} — read only</span>}
       </div>
+      {STATE_NOTE[c.status] && <p className="text-xs text-stone-500 -mt-2">{STATE_NOTE[c.status]}</p>}
 
       {letterChoices.length > 0 && spec && (
         <div className="space-y-2">
@@ -110,7 +120,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
             ))}
           </div>
           <button
-            disabled={busy}
+            disabled={busy || !canAct}
             onClick={() => {
               const body: Record<string, unknown> = {};
               for (const f of spec.fields) {
@@ -134,7 +144,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
             return (
               <button
                 key={t.to}
-                disabled={busy || blocked}
+                disabled={busy || blocked || !canAct}
                 title={blocked ? `needs ${t.needs!.join(" or ")} delivered first` : undefined}
                 onClick={() => post(`/cases/${c.id}/transition`, { to: t.to, expected_version: c.version })}
                 className="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:bg-stone-50 disabled:opacity-40"

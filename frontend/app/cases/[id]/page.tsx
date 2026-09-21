@@ -7,6 +7,11 @@ import { Actions } from "./actions";
 
 export const dynamic = "force-dynamic";
 
+/** Top-level proposal fields whose approved value differs from the proposed one. */
+function diffFields(proposed: Record<string, unknown>, approved: Record<string, unknown>): string[] {
+  return Object.keys(proposed).filter((k) => JSON.stringify(proposed[k]) !== JSON.stringify(approved[k]));
+}
+
 export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let c;
@@ -18,6 +23,9 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const [audit, effects, templates] = await Promise.all([getAudit(id), getEffects(id), getTemplates()]);
   const pendingProposal = c.proposals.find((p) => !p.decided_by) ?? null;
   const decided = c.proposals.find((p) => p.decided_by) ?? null;
+  // Which fields the reviewer changed, from the proposal itself (proposed vs approved), not from the audit row.
+  const editedFields = decided?.approved ? diffFields(decided.proposed, decided.approved) : [];
+  const title = c.borrower_name ?? (pendingProposal ? "Awaiting review" : decided ? "Correspondence" : "Awaiting triage");
 
   return (
     <div className="space-y-6">
@@ -27,7 +35,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
             ← queue
           </Link>
           <h1 className="text-lg font-semibold">
-            {c.borrower_name ?? "Untriaged correspondence"}{" "}
+            {title}{" "}
             {c.loan_id && <span className="font-mono text-sm text-stone-500 ml-2">{c.loan_id}</span>}
           </h1>
           <div className="text-xs text-stone-500">
@@ -64,13 +72,30 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
           ) : decided ? (
             <div className="bg-white border border-stone-200 rounded p-4 text-sm">
               <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">Triage</h2>
-              <div>
-                {c.case_type} {c.error_category && `· ${c.error_category}`} {c.rfi_category && `· ${c.rfi_category}`}{" "}
-                {c.exception_code && <span className="text-orange-700">· exception {c.exception_code}</span>}
+              <div className="font-medium">
+                {c.case_type}
+                {c.error_category && ` · ${c.error_category}`}
+                {c.rfi_category && ` · ${c.rfi_category}`}
               </div>
-              <div className="text-xs text-stone-500 mt-1">
-                proposed by {decided.model}, approved by {decided.decided_by}
-              </div>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs text-stone-500">
+                <dt>proposed by</dt>
+                <dd>
+                  <span className="font-mono">{decided.model}</span>
+                </dd>
+                <dt>reviewed by</dt>
+                <dd>
+                  <span className="text-blue-700">{decided.decided_by}</span>
+                  {editedFields.length > 0 ? ` · edited ${editedFields.join(", ")}` : " · no edits"}
+                </dd>
+                {c.exception_code && (
+                  <>
+                    <dt className="text-orange-700">determination</dt>
+                    <dd className="text-orange-700">
+                      {c.exception_code} — declined under {c.case_type === "RFI" ? "§1024.36(f)(1)" : "§1024.35(g)(1)"} by {decided.decided_by}; L5 due within 5 business days
+                    </dd>
+                  </>
+                )}
+              </dl>
             </div>
           ) : (
             <div className="bg-white border border-dashed border-stone-300 rounded p-4 text-sm text-stone-500">
