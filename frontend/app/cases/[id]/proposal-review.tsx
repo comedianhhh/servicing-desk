@@ -7,7 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
-import { asOperator } from "@/app/components/use-operator";
+import { JSON_HEADERS, asOperator } from "@/app/components/use-operator";
 import type { Extracted, Proposal, Proposed } from "@/lib/api";
 
 const CASE_TYPES = ["NOE", "RFI", "PAYOFF_REQUEST", "LOSS_MIT", "NOT_COVERED"];
@@ -54,7 +54,7 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
       expected_version: version,
       exception_code: exception || null,
     };
-    const r = await fetch(`/api/desk/cases/${caseId}/proposals/${proposal.id}/approve`, { method: "POST", headers: asOperator(operator), body: JSON.stringify(body) });
+    const r = await fetch(`/api/desk/cases/${caseId}/proposals/${proposal.id}/approve`, { method: "POST", headers: asOperator(operator, JSON_HEADERS), body: JSON.stringify(body) });
     setBusy(false);
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
-import { asOperator } from "@/app/components/use-operator";
+import { JSON_HEADERS, asOperator } from "@/app/components/use-operator";
 
 export default function IntakePage() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function IntakePage() {
       fd.append("received_on", receivedOn);
       r = await fetch("/api/desk/intake/document", { method: "POST", headers: asOperator(operator), body: fd });
     } else {
-      r = await fetch("/api/desk/intake", { method: "POST", headers: asOperator(operator, { "content-type": "application/json" }), body: JSON.stringify({ body: text, channel, received_on: receivedOn }) });
+      r = await fetch("/api/desk/intake", { method: "POST", headers: asOperator(operator, JSON_HEADERS), body: JSON.stringify({ body: text, channel, received_on: receivedOn }) });
     }
     const j = await r.json().catch(() => ({}));
     setBusy(false);

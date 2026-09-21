@@ -7,7 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
-import { asOperator } from "@/app/components/use-operator";
+import { JSON_HEADERS, asOperator } from "@/app/components/use-operator";
 import type { Case, TemplateSpec } from "@/lib/api";
 
 const NEXT: Record<string, { to: string; label: string; needs?: string[] }[]> = {
@@ -59,7 +59,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
   async function post(path: string, body: unknown) {
     setBusy(true);
     setMsg(null);
-    const r = await fetch(`/api/desk${path}`, { method: "POST", headers: asOperator(operator), body: JSON.stringify(body) });
+    const r = await fetch(`/api/desk${path}`, { method: "POST", headers: asOperator(operator, JSON_HEADERS), body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) {
