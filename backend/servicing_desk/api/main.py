@@ -5,14 +5,15 @@ from contextlib import asynccontextmanager
 from datetime import date
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .. import service
 from ..db import engine, get_session
-from ..models import AuditLog, Base, Case, CaseStatus, CreditHold, LedgerAdjustment, Proposal, Saga
+from ..models import AuditLog, Base, Case, CaseStatus, CreditHold, Document, LedgerAdjustment, Proposal, Saga
 from ..state_machine import TransitionError, transition
 
 
@@ -72,6 +73,10 @@ def _view(case: Case) -> dict:
         "received_on": case.correspondence.received_on.isoformat(),
         "channel": case.correspondence.channel,
         "letter_text": case.correspondence.body,
+        "documents": [
+            {"id": d.id, "filename": d.filename, "content_type": d.content_type, "size": d.size, "pages": d.pages, "engine": d.text_engine, "sha256": d.storage_key}
+            for d in case.correspondence.documents
+        ],
         "created_at": case.created_at,
         "clocks": [
             {"kind": c.kind.value, "due_on": c.due_on.isoformat(), "calendar": c.calendar, "citation": c.citation, "status": c.status.value}
@@ -106,6 +111,45 @@ def intake(body: IntakeIn, session: Session = Depends(get_session)):
     case, created = service.intake(session, **body.model_dump())
     session.commit()
     return {"case_id": case.id, "created": created}
+
+
+@app.post("/intake/document", status_code=201)
+async def intake_document(
+    file: UploadFile = File(...),
+    channel: str = Form("mail"),
+    received_on: date = Form(...),
+    sent_to_designated_address: bool = Form(True),
+    session: Session = Depends(get_session),
+):
+    """Mailroom path: the scan is archived as-is, text is derived (text layer or OCR), a case is opened."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(422, "empty file")
+    try:
+        case, created, doc = service.intake_document(
+            session,
+            data=data,
+            filename=file.filename or "upload",
+            content_type=file.content_type or "",
+            channel=channel,
+            received_on=received_on,
+            sent_to_designated_address=sent_to_designated_address,
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    session.commit()
+    return {"case_id": case.id, "created": created, "document_id": doc.id, "engine": doc.text_engine, "pages": doc.pages}
+
+
+@app.get("/documents/{document_id}")
+def get_document(document_id: str, session: Session = Depends(get_session)):
+    """The original bytes, unchanged. §1024.38(c)(2): the servicing file must be retrievable."""
+    from ..documents import storage
+
+    doc = session.get(Document, document_id)
+    if doc is None:
+        raise HTTPException(404, "document not found")
+    return Response(storage().get(doc.storage_key), media_type=doc.content_type, headers={"content-disposition": f'inline; filename="{doc.filename}"'})
 
 
 @app.get("/letters/templates")

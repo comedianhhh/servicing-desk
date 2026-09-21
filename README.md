@@ -131,14 +131,16 @@ backend/servicing_desk/
   saga.py           Respond saga: start, orchestrator handlers, compensation
   effects.py        side-effect consumers: letter vendor, ledger, credit hold
   handlers.py       consumer group → handlers registry (both transports read it)
-  service.py        intake (idempotent), record_proposal, approve_triage, send_letter, respond
+  service.py        intake (idempotent), intake_document, record_proposal, approve_triage, send_letter, respond
+  documents.py      content-addressed archive + text extraction (text / pdf text layer / OCR provider)
   triage/           TriageProposal schema; agent.py = Claude structured output; gemini.py = same contract on Gemini; stub.py = keyword rules
   workers/          clock_worker.sweep; cli.py = `desk-worker <role> [--once]`
 backend/Dockerfile  one image, role = command, non-root
 frontend/           Next.js operator UI: queue, case page, proposal review, letter composer, audit trail
 k8s/                kustomize tree: StatefulSets, Deployments, CronJob, HPA; deploy.sh tags by content id
-  api/main.py       FastAPI: /intake, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
-backend/tests/      34 tests on SQLite — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle
+  api/main.py       FastAPI: /intake, /intake/document, /documents/{id}, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
+backend/evals/      28 labeled letters + runner; scores each triage provider
+backend/tests/      39 tests on SQLite — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle
 ```
 
 ## Run
@@ -161,6 +163,19 @@ desk-worker triage-worker  # and letter-worker, ledger-worker, credit-worker, sa
 ```
 
 Without Kafka, `desk-worker all` runs the sweep and every handler in one loop.
+
+### Documents in, originals kept
+
+`POST /intake/document` takes the scan (PDF, image, or text). The bytes are archived first, content-addressed
+by sha256 — the same scan arriving by mail and again by fax is one object, and the second arrival reuses the
+first's text instead of paying for OCR twice. Text comes from the cheapest reliable source: a text file is
+text; a PDF with a text layer is read with pypdf; only an image or a scanned PDF goes to OCR, and which OCR is
+config (`OCR_PROVIDER=gemini|tesseract|none` — `none` refuses loudly rather than opening a case on nothing).
+`GET /documents/{id}` returns the original byte-for-byte. The `documents` row records which engine produced
+the text and cites §1024.38(c)(1) for retention; the case page links the original next to the transcript.
+
+Storage is a two-call interface (`put`/`get`) with a filesystem implementation. In `k8s/` that is a
+ReadWriteOnce PVC, which is fine on one node and wrong on more than one — an object store is the next step.
 
 ### Operator UI
 
@@ -209,14 +224,37 @@ Three things a first deploy taught:
 cd backend && .venv/Scripts/python -m pytest
 ```
 
+### How good is the triage, actually
+
+`backend/evals/` holds 28 labeled letters — synthetic, because the CFPB public complaint database no longer
+exposes consumer narratives, so there is no public corpus of real borrower letters. They cover every error
+category, both RFI kinds, payoff via an attorney, loss mitigation, three not-covered letters, and traps: no
+loan number, two asks in one letter, overbroad, a duplicative hint, OCR-style noise, a payoff request buried
+in an RFI. Labels are ground truth by construction. `python -m evals.run stub gemini`:
+
+| | stub (keywords) | gemini-3.1-flash-lite |
+|---|---|---|
+| case type | 17/28 | 28/28 |
+| category, given the type was right | 4/10 | 21/21 |
+| loan identifier recovered when present | 23/26 | 26/26 |
+| identifier not invented when absent | 2/2 | 2/2 |
+| exception candidates flagged | 1/2 | 2/2 |
+
+One label changed during the run: the model returned a property address as the loan identifier for the
+letter with no loan number, and §1024.35(a) asks for "information that enables the servicer to identify the
+account" — an address qualifies. The label was wrong, not the model; `--rescore` re-scores saved results
+without new API calls. 28 letters written by one person in one sitting is a smoke test with structure, not a
+benchmark; it is enough to show the keyword stub is a stub and to catch a regression when the prompt changes.
+
 ## Roadmap
 
 - ~~Step 2 — split and stream.~~ Done: Kafka relay, five consumer groups, Respond saga with compensation.
 - ~~Step 3 — run it somewhere.~~ Done: `k8s/`, verified on Docker Desktop Kubernetes (kind provisioner) —
   CronJob fired a clock and the credit worker released the hold; orchestrator pod killed mid-saga, saga finished.
-- ~~Operator UI.~~ Done (`frontend/`). Not yet containerised into `k8s/`.
-- **Evaluation set for triage.** Real-shaped letters (CFPB consumer-complaint narratives are public), scored
-  per provider; today's 5 synthetic letters are a smoke test, not evidence.
+- ~~Operator UI.~~ Done (`frontend/`, `k8s/web.yaml`).
+- ~~Evaluation set for triage.~~ Done (`backend/evals/`); CFPB narratives turned out not to be available.
+- **Object store for the archive** (MinIO/S3 behind the `Storage` interface) before more than one node.
+- **Retention job**: `retain_until` once discharge/transfer dates exist, then a CronJob that deletes.
 
 ## Not in scope, on purpose
 

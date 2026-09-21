@@ -1,0 +1,35 @@
+# The operator UI. Server-side renders talk to the API over the cluster network (API_URL=http://api:8000);
+# browser mutations go through the UI's own /api/desk proxy, so the API is never exposed to the browser.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector: { app: web }
+  ports: [{ name: http, port: 3000, targetPort: 3000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: web }
+  template:
+    metadata:
+      labels: { app: web }
+    spec:
+      containers:
+        - name: web
+          image: servicing-desk-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: API_URL, value: http://api:8000 }
+          ports: [{ containerPort: 3000, name: http }]
+          readinessProbe:
+            httpGet: { path: /intake, port: http }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }

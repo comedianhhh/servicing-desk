@@ -105,6 +105,25 @@ class Correspondence(Base):
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     case: Mapped[Case | None] = relationship(back_populates="correspondence", uselist=False)
+    documents: Mapped[list[Document]] = relationship(cascade="all, delete-orphan")
+
+
+class Document(Base):
+    """The original scan/upload a correspondence came from. Bytes live in the archive under `storage_key`
+    (= sha256, so identical scans share one object); the text we act on is derived and its engine recorded.
+    Retention: §1024.38(c)(1) — one year past discharge or transfer, dates not known at intake."""
+
+    __tablename__ = "documents"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    correspondence_id: Mapped[str] = mapped_column(ForeignKey("correspondence.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(100))
+    size: Mapped[int] = mapped_column(Integer)
+    storage_key: Mapped[str] = mapped_column(String(64), index=True)  # sha256 of the bytes
+    pages: Mapped[int] = mapped_column(Integer, default=1)
+    text_engine: Mapped[str] = mapped_column(String(32))  # text/plain | pdf-text-layer | gemini-vision | tesseract
+    retention_citation: Mapped[str] = mapped_column(String(32), default="§1024.38(c)(1)")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Case(Base):

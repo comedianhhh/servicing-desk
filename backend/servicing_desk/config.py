@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from typing import Annotated
 
 from pydantic import field_validator
@@ -8,7 +9,8 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # backend/.env regardless of the working directory; real env vars still win over the file
+    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parents[1] / ".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://desk:desk@localhost:5432/desk"
     anthropic_api_key: str | None = None
@@ -23,6 +25,8 @@ class Settings(BaseSettings):
     kafka_topic: str = "desk.case-events"
     letter_fail_rate: float = 0.0  # 0..1, simulated mail-vendor failures for the saga demo
     saga_max_attempts: int = 3
+    docs_dir: str = "./documents"  # content-addressed archive of original scans/uploads (S3 later)
+    ocr_provider: str = "none"  # gemini | tesseract | none — only for images and PDFs without a text layer
 
     @field_validator("creditor_closed_days", mode="before")
     @classmethod

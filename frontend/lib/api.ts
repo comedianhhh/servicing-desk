@@ -24,6 +24,7 @@ export type Proposed = {
   rationale: string;
 };
 export type Proposal = { id: string; model: string; proposed: Proposed; approved: Proposed | null; decided_by: string | null };
+export type Document = { id: string; filename: string; content_type: string; size: number; pages: number; engine: string; sha256: string };
 export type Case = {
   id: string;
   status: string;
@@ -37,6 +38,7 @@ export type Case = {
   received_on: string;
   channel: string;
   letter_text: string;
+  documents: Document[];
   created_at: string;
   clocks: Clock[];
   letters: Letter[];

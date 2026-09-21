@@ -11,4 +11,6 @@ data:
   LETTER_FAIL_RATE: "0.3"
   SAGA_MAX_ATTEMPTS: "3"
   CLOCK_POLL_SECONDS: "5"
+  DOCS_DIR: /app/documents
+  OCR_PROVIDER: gemini
   PYTHONIOENCODING: utf-8

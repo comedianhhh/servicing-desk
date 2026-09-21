@@ -1,0 +1,10 @@
+# Archive for original scans (content-addressed files). ReadWriteOnce: on a single-node cluster both API
+# replicas land on the node and share it; on a multi-node cluster this must become an object store — the
+# Storage interface in documents.py is two calls (put/get) — see README.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: documents
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 2Gi } }

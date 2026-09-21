@@ -16,6 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="font-semibold tracking-tight">
               Servicing Desk
             </Link>
+            <Link href="/intake" className="text-sm text-stone-600 hover:underline">
+              Intake
+            </Link>
             <span className="text-xs text-stone-500">
               Notice of Error · Request for Information · Payoff — Reg X §1024.35/.36, Reg Z §1026.36(c)(3)
             </span>

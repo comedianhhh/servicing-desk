@@ -15,6 +15,7 @@ from .models import (
     CaseStatus,
     CaseType,
     Correspondence,
+    Document,
     ErrorCategory,
     ExceptionCode,
     Proposal,
@@ -57,6 +58,48 @@ def intake(
     audit(session, case.id, actor, "intake", {"channel": channel, "received_on": received_on.isoformat()})
     emit(session, case, "correspondence.received", {"channel": channel})
     return case, True
+
+
+def intake_document(
+    session: Session,
+    *,
+    data: bytes,
+    filename: str,
+    content_type: str,
+    channel: str,
+    received_on: date,
+    sent_to_designated_address: bool = True,
+    actor: str = "system:intake",
+) -> tuple[Case, bool, Document]:
+    """Archive the original, derive its text, open (or find) the case. The archive write happens before the
+    DB row so a crash in between leaves an orphan object, never a row pointing at nothing."""
+    from .documents import Extraction, content_key, extract_text, storage
+
+    key = content_key(data)
+    storage().put(key, data)
+    # Same bytes seen before → same text; do not pay for OCR twice (a scan arriving by mail and again by fax).
+    prior = session.scalar(select(Document).where(Document.storage_key == key).order_by(Document.created_at))
+    if prior is not None:
+        prior_corr = session.get(Correspondence, prior.correspondence_id)
+        ex = Extraction(prior_corr.body, prior.text_engine, prior.pages)
+    else:
+        ex = extract_text(data, content_type, filename)
+    case, created = intake(
+        session, body=ex.text, channel=channel, received_on=received_on, sent_to_designated_address=sent_to_designated_address, actor=actor
+    )
+    doc = Document(
+        correspondence_id=case.correspondence_id,
+        filename=filename,
+        content_type=content_type,
+        size=len(data),
+        storage_key=key,
+        pages=ex.pages,
+        text_engine=ex.engine,
+    )
+    session.add(doc)
+    session.flush()
+    audit(session, case.id, actor, "document.archived", {"document_id": doc.id, "sha256": key[:12], "engine": ex.engine, "pages": ex.pages})
+    return case, created, doc
 
 
 def record_proposal(session: Session, case: Case, proposal: TriageProposal, model: str) -> Proposal:

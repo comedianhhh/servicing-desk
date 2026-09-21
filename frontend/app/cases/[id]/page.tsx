@@ -42,6 +42,20 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
         <section className="bg-white border border-stone-200 rounded p-4">
           <h2 className="text-xs uppercase tracking-wide text-stone-500 mb-2">Letter</h2>
           <pre className="whitespace-pre-wrap text-sm leading-6 font-sans">{c.letter_text}</pre>
+          {c.documents.length > 0 && (
+            <div className="mt-3 border-t border-stone-100 pt-2 text-xs text-stone-500 space-y-1">
+              {c.documents.map((d) => (
+                <div key={d.id}>
+                  Original:{" "}
+                  <a className="text-blue-700 hover:underline" href={`/api/desk/documents/${d.id}`} target="_blank" rel="noreferrer">
+                    {d.filename}
+                  </a>{" "}
+                  · {d.pages} page{d.pages === 1 ? "" : "s"} · text via <span className="font-mono">{d.engine}</span> · sha256{" "}
+                  <span className="font-mono">{d.sha256.slice(0, 12)}</span> · retained per §1024.38(c)(1)
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="space-y-6">

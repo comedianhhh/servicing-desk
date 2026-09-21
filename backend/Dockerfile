@@ -8,8 +8,8 @@ COPY pyproject.toml ./
 COPY servicing_desk ./servicing_desk
 RUN pip install --upgrade pip && pip install .
 
-# Non-root; the app writes nothing to disk.
-RUN useradd -r -u 10001 desk
+# Non-root. The only writable path is the document archive (a mounted volume in k8s).
+RUN useradd -r -u 10001 desk && mkdir -p /app/documents && chown desk /app/documents
 USER desk
 
 EXPOSE 8000
