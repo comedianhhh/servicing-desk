@@ -99,8 +99,11 @@ def producer() -> Producer:
     return _producer
 
 
-def relay_once(session: Session, limit: int = 200) -> int:
-    """Outbox → Kafka. Rows are locked so several relays can run; the row is marked only after the broker acks."""
+def claim_unpublished(session: Session, limit: int = 200) -> list[OutboxEvent]:
+    """Lock a batch of unpublished rows for this transaction. `SKIP LOCKED` is what lets several relays run
+    at once: a second relay does not block on the first one's rows, it takes the next ones. That is a
+    Postgres guarantee — SQLite accepts the clause and ignores it, which is why `tests/test_relay_postgres.py`
+    needs the real database."""
     stmt = (
         select(OutboxEvent)
         .where(OutboxEvent.published_at.is_(None))
@@ -108,7 +111,12 @@ def relay_once(session: Session, limit: int = 200) -> int:
         .limit(limit)
         .with_for_update(skip_locked=True)
     )
-    events = list(session.scalars(stmt))
+    return list(session.scalars(stmt))
+
+
+def relay_once(session: Session, limit: int = 200) -> int:
+    """Outbox → Kafka. Rows are locked so several relays can run; the row is marked only after the broker acks."""
+    events = claim_unpublished(session, limit)
     if not events:
         return 0
     p = producer()
