@@ -26,6 +26,8 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - { name: API_URL, value: http://api:8000 }
+            # "name=token,..." — the names this UI can act as; tokens must exist in the API's OPERATOR_TOKENS
+            - { name: DESK_OPERATORS, valueFrom: { secretKeyRef: { name: desk-operators, key: DESK_OPERATORS } } }
           ports: [{ containerPort: 3000, name: http }]
           readinessProbe:
             httpGet: { path: /intake, port: http }

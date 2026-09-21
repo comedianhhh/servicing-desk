@@ -29,7 +29,12 @@ def isolated_settings(monkeypatch):
     monkeypatch.setattr(settings, "saga_max_attempts", 3)
     monkeypatch.setattr(settings, "kafka_bootstrap", None)
     monkeypatch.setattr(settings, "creditor_closed_days", set())
+    monkeypatch.setattr(settings, "operator_tokens", TOKENS)
 
+
+# Three identities for the HTTP tests; the actor on every audit row comes from these, not from a body.
+TOKENS = "tok-op:op-1:operator;tok-sup:sup-1:supervisor;tok-ro:ro-1:readonly"
+AUTH = {"Authorization": "Bearer tok-op"}
 
 NOE_LETTER = """Jane Q. Borrower
 Loan #0012345678

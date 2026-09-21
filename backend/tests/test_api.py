@@ -10,7 +10,7 @@ from servicing_desk import outbox
 from servicing_desk.api import main
 from servicing_desk.db import get_session
 from servicing_desk.models import Base
-from tests.conftest import NOE_LETTER, proposal_dict
+from tests.conftest import AUTH, NOE_LETTER, proposal_dict
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def client(monkeypatch):
 
     monkeypatch.setattr(main, "engine", engine)
     main.app.dependency_overrides[get_session] = _session
-    with TestClient(main.app) as c:
+    with TestClient(main.app, headers=AUTH) as c:
         yield c, Local
     main.app.dependency_overrides.clear()
 
@@ -56,11 +56,11 @@ def test_full_noe_lifecycle(client):
     pid = case["proposals"][0]["id"]
 
     # operator approves with an edit (b5 → b11); stale version is rejected first
-    r = c.post(f"/cases/{case_id}/proposals/{pid}/approve", json={"approved": proposal_dict(), "operator": "op-1", "expected_version": 99})
+    r = c.post(f"/cases/{case_id}/proposals/{pid}/approve", json={"approved": proposal_dict(), "expected_version": 99})
     assert r.status_code == 409
     r = c.post(
         f"/cases/{case_id}/proposals/{pid}/approve",
-        json={"approved": proposal_dict(error_category="b11"), "operator": "op-1", "expected_version": case["version"]},
+        json={"approved": proposal_dict(error_category="b11"), "expected_version": case["version"]},
     )
     assert r.status_code == 200, r.text
     case = r.json()
@@ -68,27 +68,27 @@ def test_full_noe_lifecycle(client):
     assert {k["kind"] for k in case["clocks"]} == {"ACK", "RESPONSE", "CREDIT_REPORTING_HOLD"}
 
     # cannot move to INVESTIGATING without the acknowledgment letter
-    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "operator": "op-1", "expected_version": case["version"]})
+    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "expected_version": case["version"]})
     assert r.status_code == 409 and "L1" in r.json()["detail"]
 
     # letter with a missing required field is refused; complete one is accepted
-    r = c.post(f"/cases/{case_id}/letters", json={"template": "L1", "fields": {"received_on": "2026-09-01"}, "operator": "op-1"})
+    r = c.post(f"/cases/{case_id}/letters", json={"template": "L1", "fields": {"received_on": "2026-09-01"}})
     assert r.status_code == 422
-    r = c.post(f"/cases/{case_id}/letters", json={"template": "L1", "fields": {"received_on": "2026-09-01", "reference": case_id}, "operator": "op-1"})
+    r = c.post(f"/cases/{case_id}/letters", json={"template": "L1", "fields": {"received_on": "2026-09-01", "reference": case_id}})
     assert r.status_code == 201
-    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "operator": "op-1", "expected_version": case["version"]})
+    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "expected_version": case["version"]})
     assert r.status_code == 409  # queued, not delivered yet
     with Local() as s:
         outbox.relay_once(s)  # letter-worker delivers
         s.commit()
-    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "operator": "op-1", "expected_version": case["version"]})
+    r = c.post(f"/cases/{case_id}/transition", json={"to": "INVESTIGATING", "expected_version": case["version"]})
     assert r.status_code == 200 and r.json()["status"] == "INVESTIGATING"
     v = r.json()["version"]
 
     # respond through the saga: ledger posting → letter → RESPONDED
     r = c.post(
         f"/cases/{case_id}/respond",
-        json={"template": "L2", "fields": {"correction_made": "reversed fee", "effective_date": "2026-09-20", "contact_phone": "800-555-0100", "adjustment_amount": "-75.00"}, "operator": "op-1"},
+        json={"template": "L2", "fields": {"correction_made": "reversed fee", "effective_date": "2026-09-20", "contact_phone": "800-555-0100", "adjustment_amount": "-75.00"}},
     )
     assert r.status_code == 202 and r.json()["step"] == "apply_correction"
     with Local() as s:
@@ -99,7 +99,7 @@ def test_full_noe_lifecycle(client):
     fx = c.get(f"/cases/{case_id}/effects").json()
     assert fx["sagas"][0]["state"] == "DONE" and fx["ledger"][0]["amount"] == "-75.00" and fx["credit_hold"]["released_at"] is None
 
-    r = c.post(f"/cases/{case_id}/transition", json={"to": "CLOSED", "operator": "op-1", "expected_version": case["version"]})
+    r = c.post(f"/cases/{case_id}/transition", json={"to": "CLOSED", "expected_version": case["version"]})
     assert r.status_code == 200 and r.json()["status"] == "CLOSED"
 
     audit = c.get(f"/cases/{case_id}/audit").json()

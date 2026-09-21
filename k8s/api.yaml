@@ -27,6 +27,7 @@ spec:
           envFrom:
             - configMapRef: { name: desk-config }
             - secretRef: { name: desk-keys, optional: true }
+            - secretRef: { name: desk-operators }   # OPERATOR_TOKENS; the API refuses to serve without it
           ports: [{ containerPort: 8000, name: http }]
           # Liveness must not depend on Postgres: a DB outage should not get the API pods restarted.
           livenessProbe:

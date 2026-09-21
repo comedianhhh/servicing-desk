@@ -26,6 +26,10 @@ sentence each letter must contain. Every one of those is a thing this system ref
    credit bureau) is a saga: one local transaction per step, an event between steps, and a *forward*
    compensating action when a later step fails — a reversing ledger entry, a voided letter — never a rollback
    that pretends the first step did not happen.
+5. **The actor is the credential, never the body.** Every mutation carries a bearer token that resolves to a
+   name and a role (`auth.py`); the audit row records that name. An exception determination — declining a
+   notice or request under §1024.35(g) / §1024.36(f) — needs the `supervisor` role, because that is a
+   decision the servicer makes, not a triage edit. The API refuses to run with no identities configured.
 
 ## Workflow
 
@@ -127,6 +131,8 @@ backend/servicing_desk/
   state_machine.py  TRANSITIONS, REQUIRED_LETTER, transition() — the only place status changes
   letters.py        required-contents schemas + templates
   outbox.py         consume() with per-group dedupe; in-process relay
+  auth.py           bearer token → Principal(name, role); readonly / operator / supervisor
+  telemetry.py      JSON logs with case/event context; Prometheus metrics at every seam
   bus.py            Kafka transport: relay (producer) + generic consumer-group loop
   saga.py           Respond saga: start, orchestrator handlers, compensation
   effects.py        side-effect consumers: letter vendor, ledger, credit hold
@@ -139,8 +145,9 @@ backend/Dockerfile  one image, role = command, non-root
 frontend/           Next.js operator UI: queue, case page, proposal review, letter composer, audit trail
 k8s/                kustomize tree: StatefulSets, Deployments, CronJob, HPA; deploy.sh tags by content id
   api/main.py       FastAPI: /intake, /intake/document, /documents/{id}, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
-backend/evals/      28 labeled letters + runner; scores each triage provider
-backend/tests/      39 tests on SQLite — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle
+backend/evals/      42 labeled letters in three tiers + runner; README.md is the miss analysis
+backend/tests/      48 tests — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle, auth,
+                    telemetry (SQLite); relay locking on Postgres (skipped without TEST_DATABASE_URL, run in CI)
 ```
 
 ## Run
@@ -149,7 +156,7 @@ backend/tests/      39 tests on SQLite — calendars, clocks, transitions, lette
 docker compose up -d                # postgres + kafka (KRaft, single broker)
 cd backend
 uv venv && uv pip install -e ".[dev]"
-cp ../.env.example .env            # a triage key (or TRIAGE_PROVIDER=stub), KAFKA_BOOTSTRAP=localhost:9092
+cp ../.env.example .env            # a triage key (or TRIAGE_PROVIDER=stub), OPERATOR_TOKENS, KAFKA_BOOTSTRAP=localhost:9092
 .venv/Scripts/desk-seed             # five synthetic letters
 .venv/Scripts/desk-api              # http://localhost:8000/docs
 ```
@@ -180,7 +187,7 @@ ReadWriteOnce PVC, which is fine on one node and wrong on more than one — an o
 ### Operator UI
 
 ```bash
-cd frontend && npm install && API_URL=http://localhost:8000 npm run dev
+cd frontend && npm install && cp .env.example .env.local && npm run dev
 ```
 
 Next.js (app router, TypeScript, Tailwind). The queue orders open cases by their nearest pending clock; a
@@ -198,6 +205,7 @@ letter stay disabled until the worker reports it delivered. Mutations go through
 kubectl config use-context docker-desktop            # or any local cluster
 grep -E '^(GEMINI_API_KEY|ANTHROPIC_API_KEY)=.' backend/.env > /tmp/keys.env
 kubectl create namespace desk && kubectl -n desk create secret generic desk-keys --from-env-file=/tmp/keys.env
+kubectl -n desk create secret generic desk-operators \n  --from-literal=OPERATOR_TOKENS='tok-op:op-1:operator;tok-sup:sup-1:supervisor' \n  --from-literal=DESK_OPERATORS='op-1=tok-op,sup-1=tok-sup'
 sh k8s/deploy.sh                                     # build → tag by content id → kubectl apply -k k8s
 kubectl -n desk port-forward svc/api 8000:8000
 ```
@@ -226,25 +234,58 @@ cd backend && .venv/Scripts/python -m pytest
 
 ### How good is the triage, actually
 
-`backend/evals/` holds 28 labeled letters — synthetic, because the CFPB public complaint database no longer
-exposes consumer narratives, so there is no public corpus of real borrower letters. They cover every error
-category, both RFI kinds, payoff via an attorney, loss mitigation, three not-covered letters, and traps: no
-loan number, two asks in one letter, overbroad, a duplicative hint, OCR-style noise, a payoff request buried
-in an RFI. Labels are ground truth by construction. `python -m evals.run stub gemini`:
+`backend/evals/` holds 42 labeled letters in three tiers — 20 plain (one thing per letter, every category),
+8 traps (no loan number, two asks, OCR noise, payoff buried in an RFI), 14 hard (labels that need an
+argument, a schema that cannot hold the answer, or two defensible answers). Synthetic, because the CFPB
+complaint database no longer exposes narratives; the hard tier was added after the first 28 scored 28/28,
+because a set the model aces measures the set. `python -m evals.run stub gemini`:
 
 | | stub (keywords) | gemini-3.1-flash-lite |
 |---|---|---|
-| case type | 17/28 | 28/28 |
-| category, given the type was right | 4/10 | 21/21 |
-| loan identifier recovered when present | 23/26 | 26/26 |
-| identifier not invented when absent | 2/2 | 2/2 |
-| exception candidates flagged | 1/2 | 2/2 |
+| case type | 21/42 | 39/42 (+2 defensible alternates) |
+| by tier: plain · trap · hard | 13/20 · 4/8 · 5/14 | 20/20 · 7/8 · 14/14 |
+| category, given the type was right | 5/13 | 29/29 |
+| loan identifier recovered / not invented | 33/38 · 4/4 | 37/38 · 4/4 |
+| exception candidates flagged | 2/5 | 4/5 |
+| every quote verbatim in the letter | 42/42 | 42/42 |
 
-One label changed during the run: the model returned a property address as the loan identifier for the
-letter with no loan number, and §1024.35(a) asks for "information that enables the servicer to identify the
-account" — an address qualifies. The label was wrong, not the model; `--rescore` re-scores saved results
-without new API calls. 28 letters written by one person in one sitting is a smoke test with structure, not a
-benchmark; it is enough to show the keyword stub is a stub and to catch a regression when the prompt changes.
+Three rounds of prompt work sit behind that column and are written up in
+[`backend/evals/README.md`](backend/evals/README.md): one sentence fixed an origination-vs-servicing miss and
+regressed an overbroad one (every prompt change is a trade; the eval is what makes the trade visible); one
+miss turned out to be the schema, not the model (a letter that is both an NOE and an RFI has two clocks and
+one `case_type` field); and one is open — the model does not flag a notice about a loan paid off two years
+ago as untimely, even with the receipt date supplied. The last row is the metric behind rule 1: a value with
+no quote, or a "corrected" quote, is an invented value, and the OCR letter with `5S1O` in the loan number is
+quoted exactly as scanned.
+
+**The model's `confidence` is not information.** Never below 0.90 on 42 letters; 0.95, 1.00 and 0.95 on
+the three misses. The UI shows it and nothing acts on it. A calibrated probability needs a model that
+produces one — a decision model returning a distribution over `case_type` rather than a token stream and a
+guess — and the split that implies: a probabilistic classifier for the enumerated fields, the LLM only for
+the quoted extractions. That is the next experiment.
+
+### Knowing what it is doing
+
+Two questions a pager has to answer: *is the pipeline moving*, and *what happened to case X*.
+
+- **Metrics** (`telemetry.py`, Prometheus): `desk_outbox_backlog` and `desk_clocks_overdue` are the two
+  numbers that should always be zero — rows the relay has not published, and clocks past due that no sweep
+  fired. Around them: events consumed per group by outcome (handled / deduped / failed), handler latency,
+  model latency and error rate per provider, sagas done vs compensated, HTTP by route. The API serves
+  `/metrics`; each worker serves it on `METRICS_PORT`; the k8s pods carry scrape annotations. The clock
+  CronJob does not — a one-shot pod is gone before a scrape, and its numbers live in the audit log.
+- **Logs** are one JSON object per line, and every line emitted inside a handler carries the consumer group,
+  event id and case id it was working on (`bind()` context, propagated through `consume()`). Five workers,
+  one `grep case_id=`, one story.
+- **Not tracing.** A single-topic outbox with per-group dedupe has one story per case and the audit table
+  already tells it in order, with retention a trace store would not give it.
+
+### CI
+
+`.github/workflows/ci.yml`: ruff, the test suite against a Postgres service (the relay's `SKIP LOCKED`
+tests run there and are skipped on a laptop without one — SQLite accepts the clause and ignores it, so the
+one property that lets two relays run side by side was untested until it had a real database), the stub
+eval as a smoke test of the harness, and lint + build of the UI.
 
 ## Roadmap
 
@@ -253,6 +294,10 @@ benchmark; it is enough to show the keyword stub is a stub and to catch a regres
   CronJob fired a clock and the credit worker released the hold; orchestrator pod killed mid-saga, saga finished.
 - ~~Operator UI.~~ Done (`frontend/`, `k8s/web.yaml`).
 - ~~Evaluation set for triage.~~ Done (`backend/evals/`); CFPB narratives turned out not to be available.
+- ~~CI, identity, observability.~~ Done: GitHub Actions with Postgres; bearer tokens + roles; JSON logs +
+  Prometheus. Still static tokens — SSO maps onto the same `Principal` when there is an IdP to map from.
+- **Decision-model triage**: a calibrated classifier for the enumerated fields, scored on the same 42 letters.
+- **Secondary requests**: a letter that is both an NOE and an RFI opens two cases with two clocks.
 - **Object store for the archive** (MinIO/S3 behind the `Storage` interface) before more than one node.
 - **Retention job**: `retain_until` once discharge/transfer dates exist, then a CronJob that deletes.
 

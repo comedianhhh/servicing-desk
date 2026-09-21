@@ -6,7 +6,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useOperator } from "@/app/components/use-operator";
+import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
+import { asOperator } from "@/app/components/use-operator";
 import type { Case, TemplateSpec } from "@/lib/api";
 
 const NEXT: Record<string, { to: string; label: string; needs?: string[] }[]> = {
@@ -45,7 +46,7 @@ const VIA_SAGA = new Set(["L2", "L3", "RFI_RESPONSE"]);
 
 export function Actions({ c, templates }: { c: Case; templates: Record<string, TemplateSpec> }) {
   const router = useRouter();
-  const [operator, setOperator] = useOperator();
+  const operator = useActingOperator();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const letterChoices = LETTERS_FOR[c.status] ?? [];
@@ -58,7 +59,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
   async function post(path: string, body: unknown) {
     setBusy(true);
     setMsg(null);
-    const r = await fetch(`/api/desk${path}`, { method: "POST", body: JSON.stringify(body) });
+    const r = await fetch(`/api/desk${path}`, { method: "POST", headers: asOperator(operator), body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
     if (!r.ok) {
@@ -77,7 +78,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
       <div className="flex items-baseline justify-between">
         <h2 className="text-xs uppercase tracking-wide text-stone-500">Actions</h2>
         <label className="text-xs text-stone-500">
-          operator <input className="border rounded px-1 py-0.5 w-24 ml-1" value={operator} onChange={(e) => setOperator(e.target.value)} />
+          acting as <OperatorPicker className="ml-1" />
         </label>
       </div>
 
@@ -117,7 +118,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
                 if (v === undefined || v === "") continue;
                 body[f.name] = f.type === "array" ? v.split(",").map((s) => s.trim()).filter(Boolean) : v;
               }
-              post(`/cases/${c.id}/${VIA_SAGA.has(template) ? "respond" : "letters"}`, { template, fields: body, operator });
+              post(`/cases/${c.id}/${VIA_SAGA.has(template) ? "respond" : "letters"}`, { template, fields: body });
             }}
             className="rounded bg-stone-800 text-white px-3 py-1.5 text-sm disabled:opacity-50"
           >
@@ -135,7 +136,7 @@ export function Actions({ c, templates }: { c: Case; templates: Record<string, T
                 key={t.to}
                 disabled={busy || blocked}
                 title={blocked ? `needs ${t.needs!.join(" or ")} delivered first` : undefined}
-                onClick={() => post(`/cases/${c.id}/transition`, { to: t.to, operator, expected_version: c.version })}
+                onClick={() => post(`/cases/${c.id}/transition`, { to: t.to, expected_version: c.version })}
                 className="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm hover:bg-stone-50 disabled:opacity-40"
               >
                 {t.label}

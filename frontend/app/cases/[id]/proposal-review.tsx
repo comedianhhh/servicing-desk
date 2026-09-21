@@ -6,7 +6,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useOperator } from "@/app/components/use-operator";
+import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
+import { asOperator } from "@/app/components/use-operator";
 import type { Extracted, Proposal, Proposed } from "@/lib/api";
 
 const CASE_TYPES = ["NOE", "RFI", "PAYOFF_REQUEST", "LOSS_MIT", "NOT_COVERED"];
@@ -36,7 +37,7 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
   const p = proposal.proposed;
   const [form, setForm] = useState<Proposed>(structuredClone(p));
   const [exception, setException] = useState<string>(p.exception_candidates[0] ?? "");
-  const [operator, setOperator] = useOperator();
+  const operator = useActingOperator();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,11 +51,10 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
     setError(null);
     const body = {
       approved: { ...form, error_category: form.case_type === "NOE" ? form.error_category : null, rfi_category: form.case_type === "RFI" ? form.rfi_category : null },
-      operator,
       expected_version: version,
       exception_code: exception || null,
     };
-    const r = await fetch(`/api/desk/cases/${caseId}/proposals/${proposal.id}/approve`, { method: "POST", body: JSON.stringify(body) });
+    const r = await fetch(`/api/desk/cases/${caseId}/proposals/${proposal.id}/approve`, { method: "POST", headers: asOperator(operator), body: JSON.stringify(body) });
     setBusy(false);
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -135,8 +135,8 @@ export function ProposalReview({ caseId, version, proposal }: { caseId: string; 
           {p.exception_candidates.length > 0 && <span className="ml-2 text-xs text-orange-700">model flagged: {p.exception_candidates.join(", ")}</span>}
         </div>
 
-        <label className="text-stone-500">Operator</label>
-        <input className="border rounded px-2 py-1 w-40" value={operator} onChange={(e) => setOperator(e.target.value)} />
+        <label className="text-stone-500">Acting as</label>
+        <OperatorPicker className="w-40" />
       </div>
 
       {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</div>}

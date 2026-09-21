@@ -1,6 +1,8 @@
 // Server-side access to the desk API. Pages fetch here (no CORS, no key in the browser); client components
 // mutate through the /api/desk proxy route, which forwards to the same base URL.
 
+import { readToken } from "@/lib/operators";
+
 export const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
 export type Clock = { kind: string; due_on: string; calendar: string; citation: string; status: string };
@@ -53,7 +55,7 @@ export type Effects = {
 export type TemplateSpec = { doc: string; fields: { name: string; required: boolean; type: string }[] };
 
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+  const r = await fetch(`${API_URL}${path}`, { cache: "no-store", headers: { authorization: `Bearer ${readToken() ?? ""}` } });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   return r.json();
 }

@@ -14,6 +14,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .. import service
+from ..auth import Operator, Principal, Reader
 from ..db import engine, get_session
 from ..models import AuditLog, Base, Case, CaseStatus, CreditHold, Document, LedgerAdjustment, Proposal, Saga
 from ..state_machine import TransitionError, transition
@@ -53,9 +54,9 @@ class IntakeIn(BaseModel):
     sent_to_designated_address: bool = True
 
 
+# No `operator` field on any of these: the actor is whoever the bearer token says (auth.py), never the body.
 class ApproveIn(BaseModel):
     approved: dict
-    operator: str
     expected_version: int
     exception_code: str | None = None
 
@@ -63,12 +64,10 @@ class ApproveIn(BaseModel):
 class LetterIn(BaseModel):
     template: str
     fields: dict
-    operator: str
 
 
 class TransitionIn(BaseModel):
     to: CaseStatus
-    operator: str
     expected_version: int
 
 
@@ -127,7 +126,7 @@ def readyz(session: Session = Depends(get_session)):
 
 
 @app.post("/intake", status_code=201)
-def intake(body: IntakeIn, session: Session = Depends(get_session)):
+def intake(body: IntakeIn, session: Session = Depends(get_session), who: Principal = Operator):
     case, created = service.intake(session, **body.model_dump())
     session.commit()
     return {"case_id": case.id, "created": created}
@@ -140,6 +139,7 @@ async def intake_document(
     received_on: date = Form(...),
     sent_to_designated_address: bool = Form(True),
     session: Session = Depends(get_session),
+    who: Principal = Operator,
 ):
     """Mailroom path: the scan is archived as-is, text is derived (text layer or OCR), a case is opened."""
     data = await file.read()
@@ -162,7 +162,7 @@ async def intake_document(
 
 
 @app.get("/documents/{document_id}")
-def get_document(document_id: str, session: Session = Depends(get_session)):
+def get_document(document_id: str, session: Session = Depends(get_session), who: Principal = Reader):
     """The original bytes, unchanged. §1024.38(c)(2): the servicing file must be retrievable."""
     from ..documents import storage
 
@@ -173,7 +173,7 @@ def get_document(document_id: str, session: Session = Depends(get_session)):
 
 
 @app.get("/letters/templates")
-def letter_templates():
+def letter_templates(who: Principal = Reader):
     """Required contents per template, straight from the schemas — the UI renders forms from this."""
     from ..letters import TEMPLATES
 
@@ -188,7 +188,7 @@ def letter_templates():
 
 
 @app.get("/cases")
-def list_cases(status: CaseStatus | None = None, session: Session = Depends(get_session)):
+def list_cases(status: CaseStatus | None = None, session: Session = Depends(get_session), who: Principal = Reader):
     stmt = select(Case).order_by(Case.created_at.desc())
     if status:
         stmt = stmt.where(Case.status == status)
@@ -196,24 +196,27 @@ def list_cases(status: CaseStatus | None = None, session: Session = Depends(get_
 
 
 @app.get("/cases/{case_id}")
-def get_case(case_id: str, session: Session = Depends(get_session)):
+def get_case(case_id: str, session: Session = Depends(get_session), who: Principal = Reader):
     return _view(_case(session, case_id))
 
 
 @app.get("/cases/{case_id}/audit")
-def get_audit(case_id: str, session: Session = Depends(get_session)):
+def get_audit(case_id: str, session: Session = Depends(get_session), who: Principal = Reader):
     rows = session.scalars(select(AuditLog).where(AuditLog.case_id == case_id).order_by(AuditLog.id))
     return [{"at": r.at, "actor": r.actor, "action": r.action, "detail": r.detail} for r in rows]
 
 
 @app.post("/cases/{case_id}/proposals/{proposal_id}/approve")
-def approve(case_id: str, proposal_id: str, body: ApproveIn, session: Session = Depends(get_session)):
+def approve(case_id: str, proposal_id: str, body: ApproveIn, session: Session = Depends(get_session), who: Principal = Operator):
     case = _case(session, case_id)
     proposal = session.get(Proposal, proposal_id)
     if proposal is None or proposal.case_id != case.id:
         raise HTTPException(404, "proposal not found")
+    if body.exception_code and not who.can("supervisor"):
+        # Declining under §1024.35(g) / §1024.36(f) is a determination, not a triage edit.
+        raise HTTPException(403, f"{who.name} is {who.role}; an exception determination needs supervisor")
     try:
-        service.approve_triage(session, case, proposal, **body.model_dump())
+        service.approve_triage(session, case, proposal, operator=who.name, **body.model_dump())
     except (TransitionError, ValidationError, ValueError) as e:
         raise HTTPException(409, str(e)) from e
     session.commit()
@@ -221,10 +224,10 @@ def approve(case_id: str, proposal_id: str, body: ApproveIn, session: Session = 
 
 
 @app.post("/cases/{case_id}/letters", status_code=201)
-def send_letter(case_id: str, body: LetterIn, session: Session = Depends(get_session)):
+def send_letter(case_id: str, body: LetterIn, session: Session = Depends(get_session), who: Principal = Operator):
     case = _case(session, case_id)
     try:
-        letter = service.send_letter(session, case, body.template, body.fields, operator=body.operator)
+        letter = service.send_letter(session, case, body.template, body.fields, operator=who.name)
     except (ValidationError, ValueError, KeyError) as e:
         raise HTTPException(422, str(e)) from e
     session.commit()
@@ -232,11 +235,11 @@ def send_letter(case_id: str, body: LetterIn, session: Session = Depends(get_ses
 
 
 @app.post("/cases/{case_id}/respond", status_code=202)
-def respond(case_id: str, body: LetterIn, session: Session = Depends(get_session)):
+def respond(case_id: str, body: LetterIn, session: Session = Depends(get_session), who: Principal = Operator):
     """Starts the Respond saga: [post correction to ledger] → deliver letter → case RESPONDED."""
     case = _case(session, case_id)
     try:
-        saga = service.respond(session, case, body.template, body.fields, operator=body.operator)
+        saga = service.respond(session, case, body.template, body.fields, operator=who.name)
     except (ValidationError, ValueError, KeyError) as e:
         raise HTTPException(422, str(e)) from e
     session.commit()
@@ -244,7 +247,7 @@ def respond(case_id: str, body: LetterIn, session: Session = Depends(get_session
 
 
 @app.get("/cases/{case_id}/effects")
-def get_effects(case_id: str, session: Session = Depends(get_session)):
+def get_effects(case_id: str, session: Session = Depends(get_session), who: Principal = Reader):
     """What happened outside the case table: sagas, ledger postings, credit hold."""
     sagas = session.scalars(select(Saga).where(Saga.case_id == case_id).order_by(Saga.created_at))
     adjs = session.scalars(select(LedgerAdjustment).where(LedgerAdjustment.case_id == case_id))
@@ -260,10 +263,10 @@ def get_effects(case_id: str, session: Session = Depends(get_session)):
 
 
 @app.post("/cases/{case_id}/transition")
-def do_transition(case_id: str, body: TransitionIn, session: Session = Depends(get_session)):
+def do_transition(case_id: str, body: TransitionIn, session: Session = Depends(get_session), who: Principal = Operator):
     case = _case(session, case_id)
     try:
-        transition(session, case, body.to, actor=body.operator, expected_version=body.expected_version)
+        transition(session, case, body.to, actor=who.name, expected_version=body.expected_version)
     except (TransitionError, ValueError) as e:
         raise HTTPException(409, str(e)) from e
     session.commit()  # before the response goes out — see get_session

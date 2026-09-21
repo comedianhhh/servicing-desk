@@ -6,8 +6,12 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { OperatorPicker, useActingOperator } from "@/app/components/operator-picker";
+import { asOperator } from "@/app/components/use-operator";
+
 export default function IntakePage() {
   const router = useRouter();
+  const operator = useActingOperator();
   const today = new Date().toISOString().slice(0, 10);
   const [channel, setChannel] = useState("mail");
   const [receivedOn, setReceivedOn] = useState(today);
@@ -25,9 +29,9 @@ export default function IntakePage() {
       fd.append("file", file);
       fd.append("channel", channel);
       fd.append("received_on", receivedOn);
-      r = await fetch("/api/desk/intake/document", { method: "POST", body: fd });
+      r = await fetch("/api/desk/intake/document", { method: "POST", headers: asOperator(operator), body: fd });
     } else {
-      r = await fetch("/api/desk/intake", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body: text, channel, received_on: receivedOn }) });
+      r = await fetch("/api/desk/intake", { method: "POST", headers: asOperator(operator, { "content-type": "application/json" }), body: JSON.stringify({ body: text, channel, received_on: receivedOn }) });
     }
     const j = await r.json().catch(() => ({}));
     setBusy(false);
@@ -55,6 +59,10 @@ export default function IntakePage() {
           <label className="flex items-center gap-2">
             <span className="text-stone-500">Received on</span>
             <input type="date" className="border rounded px-2 py-1" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-stone-500">Acting as</span>
+            <OperatorPicker className="px-2 py-1" />
           </label>
         </div>
         <div>
