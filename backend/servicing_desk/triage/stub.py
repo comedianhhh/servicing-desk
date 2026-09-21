@@ -38,7 +38,7 @@ def propose(letter_text: str) -> tuple[TriageProposal, str]:
             break
 
     loan = _find(r"(?:loan|account)(?: number|#| no\.?)?[:\s#]*([0-9][0-9-]{5,})", letter_text)
-    name = _find(r"(?:my name is|—|-|sincerely,?)\s*([A-Z][a-z]+(?: [A-Z]\.)?(?: [A-Z][a-z]+)+)", letter_text)
+    name = _find(r"(?:my name is|—|sincerely,?|thank you\.)\s*([A-Z][a-z]+(?: [A-Z]\.)?(?: [A-Z][a-z]+)+)", letter_text)
     if name.value is None:  # first line that looks like a name
         first = letter_text.strip().splitlines()[0].strip()
         if re.fullmatch(r"[A-Z][a-z]+(?: [A-Z]\.)?(?: [A-Z][a-z]+)+", first):

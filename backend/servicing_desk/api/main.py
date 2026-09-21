@@ -71,12 +71,15 @@ def _view(case: Case) -> dict:
         "loan_id": case.loan_id,
         "received_on": case.correspondence.received_on.isoformat(),
         "channel": case.correspondence.channel,
+        "letter_text": case.correspondence.body,
+        "created_at": case.created_at,
         "clocks": [
             {"kind": c.kind.value, "due_on": c.due_on.isoformat(), "calendar": c.calendar, "citation": c.citation, "status": c.status.value}
             for c in sorted(case.clocks, key=lambda c: c.due_on)
         ],
         "letters": [
-            {"id": lt.id, "template": lt.template, "sent_at": lt.sent_at, "voided_at": lt.voided_at} for lt in case.letters
+            {"id": lt.id, "template": lt.template, "body": lt.body, "fields": lt.fields, "sent_at": lt.sent_at, "voided_at": lt.voided_at}
+            for lt in case.letters
         ],
         "proposals": [
             {"id": p.id, "model": p.model, "proposed": p.proposed, "approved": p.approved, "decided_by": p.decided_by}
@@ -103,6 +106,21 @@ def intake(body: IntakeIn, session: Session = Depends(get_session)):
     case, created = service.intake(session, **body.model_dump())
     session.commit()
     return {"case_id": case.id, "created": created}
+
+
+@app.get("/letters/templates")
+def letter_templates():
+    """Required contents per template, straight from the schemas — the UI renders forms from this."""
+    from ..letters import TEMPLATES
+
+    out = {}
+    for name, schema in TEMPLATES.items():
+        props = schema.model_json_schema().get("properties", {})
+        out[name] = {
+            "doc": (schema.__doc__ or "").strip(),
+            "fields": [{"name": k, "required": k in schema.model_json_schema().get("required", []), "type": v.get("type", "string")} for k, v in props.items()],
+        }
+    return out
 
 
 @app.get("/cases")

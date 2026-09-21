@@ -135,6 +135,7 @@ backend/servicing_desk/
   triage/           TriageProposal schema; agent.py = Claude structured output; gemini.py = same contract on Gemini; stub.py = keyword rules
   workers/          clock_worker.sweep; cli.py = `desk-worker <role> [--once]`
 backend/Dockerfile  one image, role = command, non-root
+frontend/           Next.js operator UI: queue, case page, proposal review, letter composer, audit trail
 k8s/                kustomize tree: StatefulSets, Deployments, CronJob, HPA; deploy.sh tags by content id
   api/main.py       FastAPI: /intake, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
 backend/tests/      34 tests on SQLite — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle
@@ -160,6 +161,21 @@ desk-worker triage-worker  # and letter-worker, ledger-worker, credit-worker, sa
 ```
 
 Without Kafka, `desk-worker all` runs the sweep and every handler in one loop.
+
+### Operator UI
+
+```bash
+cd frontend && npm install && API_URL=http://localhost:8000 npm run dev
+```
+
+Next.js (app router, TypeScript, Tailwind). The queue orders open cases by their nearest pending clock; a
+case page puts the letter on the left and everything derived from it on the right, so each extracted value
+sits next to the quote it came from. The proposal form is editable — what the operator approves is what the
+server writes, and the audit row lists which fields changed. Letter forms are generated from
+`/letters/templates`, i.e. from the same Pydantic schemas the server validates with, so a rule's required
+field cannot be left out by the UI and a 422 from the server is shown verbatim. Transitions that need a
+letter stay disabled until the worker reports it delivered. Mutations go through a same-origin proxy
+(`app/api/desk/[...path]`) so the browser never holds the API address or talks cross-origin.
 
 ### On Kubernetes
 
@@ -198,8 +214,9 @@ cd backend && .venv/Scripts/python -m pytest
 - ~~Step 2 — split and stream.~~ Done: Kafka relay, five consumer groups, Respond saga with compensation.
 - ~~Step 3 — run it somewhere.~~ Done: `k8s/`, verified on Docker Desktop Kubernetes (kind provisioner) —
   CronJob fired a clock and the credit worker released the hold; orchestrator pod killed mid-saga, saga finished.
-- **Operator UI.** Next.js queue: cases by due date, proposal with source quotes side-by-side with the
-  letter, approve / edit / flag exception, letter composer that shows which required fields are missing.
+- ~~Operator UI.~~ Done (`frontend/`). Not yet containerised into `k8s/`.
+- **Evaluation set for triage.** Real-shaped letters (CFPB consumer-complaint narratives are public), scored
+  per provider; today's 5 synthetic letters are a smoke test, not evidence.
 
 ## Not in scope, on purpose
 
