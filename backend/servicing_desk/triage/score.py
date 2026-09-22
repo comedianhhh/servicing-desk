@@ -32,15 +32,36 @@ from .schema import TriageProposal
 log = logging.getLogger("score")
 
 # Option descriptions are lifted from agent.SYSTEM so every provider decides against the same definitions.
+#
+# Round 6 rewrote the NOE / NOT_COVERED / LOSS_MIT boundaries. Both decision models were wrong about them in
+# opposite directions — the hosted one filed 85 covered letters as NOT_COVERED, the local one pulled 29 the
+# other way — and so were the two human labellers, on ten of their thirteen disagreements. When two models
+# and two people fail on the same line, the line is the defect. These descriptions now say what the labelling
+# policy in evals/README.md already said (a servicing failure described in plain words is an asserted error;
+# origination is not servicing; a letter that both alleges and asks is an NOE), which is a different thing
+# from tuning against the misses: nothing here was written by looking at which letters a provider got wrong.
+# Phrased positively, because a 4B model scoring options degrades on negations — the old NOE text carried a
+# shouted "are NOT servicing errors" that it had to reason past.
 CASE_TYPES: dict[str, str] = {
-    "NOE": "a written notice asserting that the servicer made an error in servicing the loan (12 CFR 1024.35). "
-    "Complaints about origination, underwriting, the interest rate, or other loan terms are NOT servicing errors "
-    "even when the letter says 'error' or 'wrong'.",
-    "RFI": "a written request for information about the loan (12 CFR 1024.36), including who owns or holds it.",
-    "PAYOFF_REQUEST": "a request for the payoff amount or a payoff statement, and nothing else.",
-    "LOSS_MIT": "a request for a modification, forbearance, or other loss mitigation option (12 CFR 1024.41).",
-    "NOT_COVERED": "none of the above: a payment coupon, a general complaint with no asserted error and no "
-    "request, marketing, a complaint about origination or loan terms.",
+    "NOE": "the letter says something has gone wrong in the servicing of the loan (12 CFR 1024.35): a payment "
+    "misapplied, refused, or credited late; a fee the borrower says is unjustified; taxes or insurance unpaid "
+    "from escrow; an escrow balance the borrower says is miscalculated; records or credit reporting the borrower "
+    "says are inaccurate; information lost in a transfer between servicers; a foreclosure or sale step taken too "
+    "early or during a loss mitigation review. It counts whether or not the letter uses the word 'error', and "
+    "whether or not it asks for anything in return.",
+    "RFI": "the letter asks the servicer for information or documents about this loan (12 CFR 1024.36) — who owns "
+    "or holds it, a payment history, an escrow analysis, a copy of a document, an explanation of a figure — and "
+    "describes nothing that has gone wrong.",
+    "PAYOFF_REQUEST": "the letter asks what it would take to pay the loan off, or for a payoff statement, and "
+    "nothing else.",
+    "LOSS_MIT": "the only thing the letter asks for is help with the debt itself (12 CFR 1024.41): a modification, "
+    "forbearance, repayment plan, deferral, short sale, or deed in lieu. A letter that also says the servicer "
+    "mishandled the application, the account, or a foreclosure step is an NOE about that mishandling.",
+    "NOT_COVERED": "the letter describes nothing gone wrong in the servicing of this loan and asks the servicer for "
+    "nothing: a payment coupon, a change of address, marketing, thanks or abuse, a general grievance about the "
+    "company, or a complaint about how the loan was applied for, underwritten, priced, approved, or denied — "
+    "including refinance, new purchase, and assumption applications, which are decisions about lending rather "
+    "than servicing.",
 }
 ERROR_CATEGORIES: dict[str, str] = {
     "b1": "failure to accept a conforming payment",

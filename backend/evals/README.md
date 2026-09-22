@@ -456,6 +456,9 @@ letter — nine questions against one letter, billed once. No public pricing pag
 `docs.typesafe.ai/pricing.md` or `typesafe.ai/pricing`, so the cost column is token counts rather than
 money.
 
+(Round 7 rewrote the case-type descriptions and moved every number in this section; the tables below are
+the measurement that led to that change, kept because the comparison is the point.)
+
 **It wins on text written for the task and loses on text that was not.** On the synthetic set, where every
 letter was composed to be one thing, Jev beats the local scorer. On 300 real complaints it is eleven points
 behind. The misses say why, and they are the mirror image of the local model's:
@@ -533,6 +536,79 @@ in as many words, 5 UNTIMELY on loans the letter says were paid off.
 3. **Conformal survives both.** It is the only layer that did not need to be re-derived for a new provider;
    `evals/conformal.py` read the hosted model's distributions unchanged, because the guarantee never
    depended on the model being good.
+
+## Round 7 — the line, not the model
+
+Round 6 ended on a suspicion: that the eleven-point gap between the two decision layers was a definition
+rather than a capability. Two models were wrong about the NOE / NOT_COVERED boundary in opposite directions,
+and the two human labellers had split on the same line ten times out of thirteen. When two models and two
+people fail on one line, the line is the defect.
+
+So the line was rewritten. `CASE_TYPES` now says what the labelling policy in this file already said:
+
+- **NOE** lists what "something went wrong in servicing" actually looks like — a payment misapplied, refused
+  or credited late, a fee said to be unjustified, escrow items unpaid, records or credit reporting said to
+  be inaccurate, information lost in transfer, a foreclosure step taken too early — and says outright that
+  it counts whether or not the letter uses the word "error" and whether or not it asks for anything back.
+- **NOT_COVERED** says the letter describes nothing gone wrong *and* asks for nothing, and names the
+  lending-side decisions that belong here: applications to refinance, to purchase, to assume.
+- **LOSS_MIT** says *the only thing the letter asks for* is help with the debt, and that a letter which also
+  alleges mishandling is an NOE about the mishandling.
+- Everything is phrased positively. The old NOE text carried a shouted "are NOT servicing errors" that a 4B
+  model had to reason past.
+
+Nothing here was written by looking at which letters a provider got wrong. The source was the labelling
+policy, which was fixed before any provider ran against this set. **What that means for the numbers is
+stated plainly below: this is the desk telling the model its own policy, not the model getting smarter.**
+
+### What it did
+
+| real set, 300 letters | before | after |
+|---|---|---|
+| **jev** type_acc | 197 (66 %) | **273 (91 %)** |
+| **jev** AUROC · ECE · fitted T | 0.74 · 0.11 · 1.7 | **0.87 · 0.04 · 1.0** |
+| **jev** conformal at 95 % | 58 routed, 4 wrong | **237 routed, 8 wrong** |
+| **score** (4B) type_acc | **228 (76 %)** | 218 (73 %) |
+| **score** AUROC · ECE · fitted T | 0.72 · 0.15 · 6 | **0.84 · 0.07 · 8** |
+| **score** conformal at 95 % | 136 routed, 12 wrong | 62 routed, **0 wrong** |
+
+| synthetic set, 42 letters | before | after |
+|---|---|---|
+| jev | 37 (+1 alt) | **39 (+2)** |
+| score | 35 (+2) | **37 (+2)** |
+
+Jev's error direction flipped and shrank: it used to file 85 covered letters as NOT_COVERED, and now its
+whole error budget is 23 letters pulled the other way (8 LOSS_MIT, 8 RFI, 7 NOT_COVERED read as NOE). At
+95 % coverage it now clears 237 of 300 letters with 8 wrong — 79 % of the mail auto-routed at a 3.4 % error
+rate, where before the change it cleared 19 % at 6.9 %.
+
+**And the same change cost the 4B ten letters.** Its NOT_COVERED → NOE confusion went from 29 to 49: told in
+detail what a servicing failure looks like, it started seeing them everywhere. This is the second time in
+two rounds that richer instructions helped the hosted model and hurt the local one — the first was the Noul
+criteria, where spurious flags went 3 → 1 for Jev and 3 → 7 for the 4B. It is not a coincidence and it is
+worth stating as a rule: **prompt richness is not free, and how much of it a model can use is a property of
+the model.** A 4B scoring multiple-choice options degrades as the options grow, whether they grow by
+negation or by detail.
+
+The definitions stay shared anyway. Per-provider case-type text would make every future comparison
+meaningless, the sharpened wording is what the desk's policy actually says, and the 4B's calibration
+improved even as its accuracy fell: at 95 % coverage it now routes 62 letters and gets none of them wrong.
+The ten letters are the measured price of one prompt for both.
+
+### The caveat that belongs next to the 91 %
+
+The new descriptions encode this project's own labelling policy, and the labels were written by one person
+applying it. So part of the jump is the model being told the rubric it is graded against. Two things keep
+that honest:
+
+- The rubric was published before the models ran against this set, and the rewrite cites it rather than the
+  misses.
+- The two labellers agreed on only 78 % of a random 60 (κ = 0.61). **A single labeller's policy has a
+  ceiling, and 91 % is close enough to it that the remaining nine points are as likely to be the labels as
+  the model.** Reporting 91 % as "accuracy" without that sentence would be a lie of omission.
+
+The honest headline is not "a hosted model gets 91 %". It is: *writing the policy down properly was worth
+76 letters to one model and −10 to another, and no amount of calibration would have found either.*
 
 ## Reading the results file
 

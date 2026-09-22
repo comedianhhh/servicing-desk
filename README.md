@@ -290,7 +290,17 @@ request per letter instead of sixteen local prefills — and the result was a sp
 calibrated (ECE 0.02 against the local model's 0.06 after a temperature fit, confidence bands ordered out
 of the box) and loses on accuracy over real complaints, 197/300 against 228/300, because it reads the
 NOE/NOT_COVERED boundary more strictly than this set's labels do. The local provider stays the default;
-the hosted one needs a key and sends letter text off the box. `backend/evals/README.md` has both.
+the hosted one needs a key and sends letter text off the box.
+
+Round 7 then found the real bottleneck. Both models were wrong about the same boundary — what counts as an
+error in *servicing* rather than in lending — in opposite directions, and so were the two human labellers,
+on ten of their thirteen disagreements. Rewriting that definition, from the labelling policy rather than
+from the misses, took the hosted model from 197/300 to **273/300** and cost the local one ten letters: the
+same richer instructions that a purpose-built decision model uses, a 4B scoring multiple-choice options
+degrades on. Calibration improved for both (AUROC 0.87 and 0.84; at 95 % conformal coverage the hosted
+model now routes 237 of 300 letters with 8 wrong, the local one 62 with none). No amount of calibration
+would have found any of it. `backend/evals/README.md` has the tables and the caveat about grading a model
+against one labeller's rubric.
 
 ### Knowing what it is doing
 

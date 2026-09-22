@@ -108,13 +108,14 @@ def test_decide_routes_category_and_flags(monkeypatch):
 
 
 def test_exceptions_are_judged_only_where_the_rule_has_them(monkeypatch):
-    _fake_server(monkeypatch, lambda desc: 0.0 if desc.startswith("a request for a modification") or desc == "yes" else -6.0)
+    _fake_server(monkeypatch, lambda desc: 0.0 if desc in (S.CASE_TYPES["LOSS_MIT"], "yes") else -6.0)
     d = S.decide("letter", RECEIVED)
     assert d.case_type.top == "LOSS_MIT" and d.exceptions == {} and d.flags == []  # a yes-happy model, nothing to say yes to
 
 
 def test_propose_overrides_enumerated_fields_only(monkeypatch):
-    _fake_server(monkeypatch, lambda desc: 0.0 if desc.startswith("a request for the payoff") or desc == "no" else -6.0)
+    # Match the option by identity, not by its opening words: the descriptions get rewritten between rounds.
+    _fake_server(monkeypatch, lambda desc: 0.0 if desc in (S.CASE_TYPES["PAYOFF_REQUEST"], "no") else -6.0)
     proposal, model = S.propose("Please send me the payoff amount. Rebecca Lindqvist, loan 5510-220-9931", received_on=RECEIVED)
     assert proposal.case_type == "PAYOFF_REQUEST" and proposal.error_category is None and proposal.exception_candidates == []
     assert proposal.three_elements.loan_identifier.value == "5510-220-9931"  # extraction still from the base provider
