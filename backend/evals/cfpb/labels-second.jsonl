@@ -1,0 +1,300 @@
+{"id": "cfpb-1307544", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks why escrow keeps rising; no error asserted"}
+{"id": "cfpb-1336340", "case_type": "NOE", "error_category": "b2", "note": "received check never applied; fees piling up"}
+{"id": "cfpb-1350765", "case_type": "NOT_COVERED", "note": "wrong-number calls; not a borrower"}
+{"id": "cfpb-1366602", "case_type": "NOE", "error_category": "b11", "note": "online account access blocked pending withdrawal of cease-and-desist"}
+{"id": "cfpb-1371946", "case_type": "NOE", "error_category": "b11", "note": "drafted a payment after payoff and kept $400 of it"}
+{"id": "cfpb-1374638", "case_type": "NOE", "error_category": "b11", "note": "insurance-claim check handling; docs faxed twice, servicer says not received"}
+{"id": "cfpb-1389284", "case_type": "NOE", "error_category": "b10", "note": "attorney: NOD invalid, assistance docs lost, asks sale postponed"}
+{"id": "cfpb-1400836", "case_type": "NOE", "error_category": "b7", "note": "assistance package withheld then back-dated; sale scheduled"}
+{"id": "cfpb-1441939", "case_type": "NOE", "error_category": "b11", "note": "paid taxes from escrow that only held insurance; duplicate payment"}
+{"id": "cfpb-1450619", "case_type": "NOE", "error_category": "b1", "note": "bi-monthly payments not accepted after transfer; foreclosure letters though current"}
+{"id": "cfpb-1466066", "case_type": "LOSS_MIT", "note": "modification submitted, cannot reach anyone about its status"}
+{"id": "cfpb-1500244", "case_type": "NOE", "error_category": "b8", "note": "approved modification not honored after transfer; docs 'missing'; sale date"}
+{"id": "cfpb-1516175", "case_type": "NOE", "error_category": "b11", "note": "modification and deed never recorded; second lien not disclosed"}
+{"id": "cfpb-1540823", "case_type": "NOE", "error_category": "b11", "note": "discharged debt reported as recent charge-off"}
+{"id": "cfpb-1569139", "case_type": "NOE", "error_category": "b11", "note": "promised removal of late marks under modification not done"}
+{"id": "cfpb-1580100", "case_type": "NOE", "error_category": "b2", "note": "told 30 days late though checks were cashed; wants statement"}
+{"id": "cfpb-1596619", "case_type": "NOE", "error_category": "b11", "note": "PMI/insurance filed wrong, escrow payment jumped"}
+{"id": "cfpb-1618277", "case_type": "NOT_COVERED", "note": "deed of trust misfiled at origination; loan-document dispute"}
+{"id": "cfpb-1626309", "case_type": "NOE", "error_category": "b11", "note": "PMI cancellation refused despite disclosure terms"}
+{"id": "cfpb-1704856", "case_type": "NOE", "error_category": "b11", "note": "escrow analysis counted insurance twice"}
+{"id": "cfpb-1718543", "case_type": "NOE", "error_category": "b11", "note": "double-paid insurance from escrow, refuses to refund"}
+{"id": "cfpb-1733447", "case_type": "NOE", "error_category": "b4", "note": "property taxes not paid from escrow; wants $490 in penalties"}
+{"id": "cfpb-1759019", "case_type": "NOE", "error_category": "b11", "note": "settled account reported as charge-off"}
+{"id": "cfpb-1775737", "case_type": "NOE", "error_category": "b5", "note": "force-placed flood insurance despite adequate coverage"}
+{"id": "cfpb-1822318", "case_type": "NOE", "error_category": "b11", "note": "reverse mortgage sold for taxes that were paid (family member writing)"}
+{"id": "cfpb-1853292", "case_type": "NOE", "error_category": "b11", "note": "1099 after foreclosure for full balance; asks correction"}
+{"id": "cfpb-1853370", "case_type": "NOT_COVERED", "note": "HOA about an abandoned property; not the borrower"}
+{"id": "cfpb-1853457", "case_type": "NOE", "error_category": "b11", "note": "repeated 'abandonment' inspections on an occupied home; wants written confirmation"}
+{"id": "cfpb-1919688", "case_type": "NOE", "error_category": "b7", "note": "modifications denied with no reason given"}
+{"id": "cfpb-1995474", "case_type": "NOT_COVERED", "note": "hard-money lender pre-qualification fell through; origination"}
+{"id": "cfpb-2040363", "case_type": "NOE", "error_category": "b11", "note": "statements stopped; default letter sent to spouse"}
+{"id": "cfpb-2063064", "case_type": "NOE", "error_category": "b7", "note": "HAMP application pulled without notice or reason; foreclosure filed"}
+{"id": "cfpb-2101616", "case_type": "RFI", "rfi_category": "OTHER", "note": "transfer notice by email only; wants confirmation before redirecting payments"}
+{"id": "cfpb-2116868", "case_type": "RFI", "rfi_category": "OTHER", "note": "copy of modification agreement requested repeatedly, not provided"}
+{"id": "cfpb-2147842", "case_type": "NOE", "error_category": "b11", "note": "escrow increase not communicated; late fees and credit marks though escrow held funds"}
+{"id": "cfpb-2255962", "case_type": "NOE", "error_category": "b11", "note": "reported 5 months delinquent though never late; escrow overpaid"}
+{"id": "cfpb-2270706", "case_type": "NOE", "error_category": "b7", "note": "letter acknowledges a loss-mit application never made; HAMP still pending"}
+{"id": "cfpb-2286121", "case_type": "NOE", "error_category": "b2", "note": "payments confirmed received then treated as missing; foreclosure threats"}
+{"id": "cfpb-2370881", "case_type": "NOE", "error_category": "b10", "note": "complete modification package, then 'not enough time' before sale date"}
+{"id": "cfpb-2389360", "case_type": "NOE", "error_category": "b5", "note": "hazard insurance force-placed despite own policy; asked removal"}
+{"id": "cfpb-2467266", "case_type": "NOT_COVERED", "note": "REO purchase offer cancelled; not a borrower"}
+{"id": "cfpb-2477055", "case_type": "NOE", "error_category": "b11", "note": "seven years of modification mishandling, fees; overbroad"}
+{"id": "cfpb-2535770", "case_type": "NOE", "error_category": "b2", "note": "principal payment parked in reserve funds; later payment split wrongly"}
+{"id": "cfpb-2576050", "case_type": "NOE", "error_category": "b3", "note": "late charge though checks received early; payment misposted to principal"}
+{"id": "cfpb-2579255", "case_type": "RFI", "rfi_category": "OTHER", "note": "wants the property survey the servicer said it emailed"}
+{"id": "cfpb-2581629", "case_type": "NOE", "error_category": "b11", "note": "QWR and proof of claim unanswered; POA revoked"}
+{"id": "cfpb-2592235", "case_type": "NOE", "error_category": "b11", "note": "reverse-mortgage disbursement missed; asks which penalty applies"}
+{"id": "cfpb-2802895", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks confirmation whether property is in a flood-disaster area; disputes trial-payment answer"}
+{"id": "cfpb-2831170", "case_type": "NOE", "error_category": "b11", "note": "servicer keeps paying taxes and holds lis pendens on quitclaimed property despite letters"}
+{"id": "cfpb-2917119", "case_type": "RFI", "rfi_category": "OTHER", "note": "repeated requests for origination documents (application, HUD-1, TIL, appraisal)"}
+{"id": "cfpb-2951579", "case_type": "LOSS_MIT", "note": "repeated hardship applications; told not qualified; pleads to save home"}
+{"id": "cfpb-2978507", "case_type": "LOSS_MIT", "note": "asks for a lower payment on the offered modification"}
+{"id": "cfpb-3003880", "case_type": "NOE", "error_category": "b11", "note": "unauthorized withdrawals; autopay rescission ignored; overdraft fees"}
+{"id": "cfpb-3007734", "case_type": "LOSS_MIT", "note": "widow asks for forbearance/modification after denial"}
+{"id": "cfpb-3013580", "case_type": "NOT_COVERED", "note": "occupancy question on a second-home rider; not a servicing request"}
+{"id": "cfpb-3071924", "case_type": "NOE", "error_category": "b11", "note": "autopay date changed without consent; missed draft; default letter"}
+{"id": "cfpb-3119426", "case_type": "NOT_COVERED", "note": "refinance declined over an alleged lien; origination"}
+{"id": "cfpb-3141407", "case_type": "NOE", "error_category": "b2", "note": "charity check returned, own check in suspense; foreclosure letters; asks to apply"}
+{"id": "cfpb-3142633", "case_type": "NOE", "error_category": "b5", "note": "HELOC late fee and lien-release fee above the county's charge (HELOC: Reg X servicing rules would not apply; labeled by the schema's definitions)"}
+{"id": "cfpb-3190763", "case_type": "NOE", "error_category": "b5", "note": "$120 late charges after transfer with uninterrupted autopay; wants explanation"}
+{"id": "cfpb-3198234", "case_type": "NOE", "error_category": "b11", "note": "statement contradicts written first-payment date; bankruptcy coding"}
+{"id": "cfpb-3203298", "case_type": "NOE", "error_category": "b8", "note": "balance-reduction modification approved by prior servicer, not honored after transfer"}
+{"id": "cfpb-3212757", "case_type": "NOE", "error_category": "b11", "note": "deed of release not issued; clouding title"}
+{"id": "cfpb-3221534", "case_type": "NOE", "error_category": "b6", "note": "payoff includes $36,000 'lender paid expenses' not in the modification"}
+{"id": "cfpb-3229597", "case_type": "NOE", "error_category": "b2", "note": "duplicate draft after transfer; then told no payment received; funds in suspense"}
+{"id": "cfpb-3272697", "case_type": "NOE", "error_category": "b11", "note": "PMI-removal appraisal paid twice and still not scheduled after four months"}
+{"id": "cfpb-3315185", "case_type": "NOE", "error_category": "b11", "note": "escrow refund after payoff not received after six weeks"}
+{"id": "cfpb-3319570", "case_type": "NOT_COVERED", "note": "refinance cancelled over a reaffirmation letter; wants appraisal fee back; origination"}
+{"id": "cfpb-3328767", "case_type": "NOE", "error_category": "b11", "note": "credit report not updated after modification brought loan current"}
+{"id": "cfpb-3385917", "case_type": "NOE", "error_category": "b11", "note": "PMI removal refused at 80% LTV citing an undisclosed 75% rule; wants appraisal fee back"}
+{"id": "cfpb-3389945", "case_type": "NOE", "error_category": "b10", "note": "trial plan pending at transfer; new servicer silent; sale date set"}
+{"id": "cfpb-3390468", "case_type": "NOE", "error_category": "b8", "note": "transferee treats a paid month as delinquent despite five certified proofs"}
+{"id": "cfpb-3402247", "case_type": "NOT_COVERED", "note": "construction-loan refinance denied; HOA charge; origination"}
+{"id": "cfpb-3403966", "case_type": "NOE", "error_category": "b5", "note": "three years of late fees on paper-check bill pay never disclosed; no principal reduction"}
+{"id": "cfpb-3516769", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks how ARM adjustments work and which index the new servicer uses"}
+{"id": "cfpb-3526540", "case_type": "NOE", "error_category": "b10", "note": "complete modification package lost in transfer, closed for one page; sale date pending"}
+{"id": "cfpb-3579742", "case_type": "NOT_COVERED", "note": "purchase loan denied three days before closing; origination"}
+{"id": "cfpb-3688709", "case_type": "NOT_COVERED", "note": "servicer's minimum FICO for FHA streamline refinance; origination"}
+{"id": "cfpb-3693667", "case_type": "NOT_COVERED", "note": "collection calls inside the grace period; conduct complaint, no error asserted"}
+{"id": "cfpb-3694188", "case_type": "NOE", "error_category": "b11", "note": "insurance loss-draft reimbursements delayed for weeks despite completed inspection"}
+{"id": "cfpb-3766529", "case_type": "NOE", "error_category": "b11", "note": "modification / partial-claim handling disputed across servicers; overbroad"}
+{"id": "cfpb-3782165", "case_type": "NOE", "error_category": "b7", "note": "declared in default of trial plan over a payment never disclosed; payment refused"}
+{"id": "cfpb-3788442", "case_type": "NOE", "error_category": "b1", "note": "half-payment returned and late fee charged after transfer"}
+{"id": "cfpb-3795078", "case_type": "NOT_COVERED", "note": "refinance rate bait-and-switch and hard pull; origination"}
+{"id": "cfpb-4023224", "case_type": "NOE", "error_category": "b2", "note": "payment held in suspense; past-due letters and foreclosure notice; since paid off"}
+{"id": "cfpb-4025032", "case_type": "NOT_COVERED", "note": "VA purchase application; partner's debts; origination"}
+{"id": "cfpb-4030649", "case_type": "NOT_COVERED", "note": "title policy request to a title company, not the servicer"}
+{"id": "cfpb-4046931", "case_type": "NOE", "error_category": "b2", "note": "EDI payment misapplied four years ago; late fees; refuse to correct"}
+{"id": "cfpb-4049232", "case_type": "NOT_COVERED", "note": "hard credit pull while shopping a refinance; origination"}
+{"id": "cfpb-4056725", "case_type": "NOE", "error_category": "b11", "note": "120-day late marks after an agreed post-forbearance repayment plan"}
+{"id": "cfpb-4062559", "case_type": "NOE", "error_category": "b6", "note": "payoff inflated by force-placed insurance and a phantom escrow shortage"}
+{"id": "cfpb-4064708", "case_type": "NOE", "error_category": "b2", "note": "$6,300 check cleared, never credited"}
+{"id": "cfpb-4069505", "case_type": "NOT_COVERED", "note": "refinance closing-cost surcharge refund; origination"}
+{"id": "cfpb-4070107", "case_type": "NOE", "error_category": "b6", "note": "payoff statement includes a late fee inside the grace period"}
+{"id": "cfpb-4085260", "case_type": "PAYOFF_REQUEST", "note": "successor in interest needs a payoff figure to close a sale"}
+{"id": "cfpb-4120241", "case_type": "LOSS_MIT", "note": "forbearance extension refused; cites CARES"}
+{"id": "cfpb-4135828", "case_type": "NOE", "error_category": "b4", "note": "escrow shows taxes paid; town never received them"}
+{"id": "cfpb-4146852", "case_type": "NOE", "error_category": "b2", "note": "line-of-credit payments unapplied, ~$5,000 (HELOC; labeled by the schema's definitions)"}
+{"id": "cfpb-4149621", "case_type": "NOE", "error_category": "b11", "note": "forbearance status not removed; payments unapplied; letter refused"}
+{"id": "cfpb-4195177", "case_type": "LOSS_MIT", "note": "asks reduced payment, deferral of arrears, late-fee removal"}
+{"id": "cfpb-4215723", "case_type": "NOE", "error_category": "b11", "note": "signed modification paperwork lost; foreclosure still on credit"}
+{"id": "cfpb-4216933", "case_type": "NOE", "error_category": "b5", "note": "intent-to-foreclose over disputed lender-placed insurance; no missed payment"}
+{"id": "cfpb-4219090", "case_type": "NOT_COVERED", "note": "refinance found ineligible at underwriting; origination"}
+{"id": "cfpb-4222520", "case_type": "NOT_COVERED", "note": "refinance application delay; promised compensation; origination"}
+{"id": "cfpb-4229156", "case_type": "NOT_COVERED", "note": "broker conduct on a purchase application; origination"}
+{"id": "cfpb-4234244", "case_type": "RFI", "rfi_category": "OTHER", "note": "wants a plain explanation of where escrow cushion money goes"}
+{"id": "cfpb-4238458", "case_type": "LOSS_MIT", "note": "forbearance extension / deferment refused"}
+{"id": "cfpb-4264283", "case_type": "LOSS_MIT", "note": "modification terms unaffordable; asks 2% for the term"}
+{"id": "cfpb-4274437", "case_type": "NOE", "error_category": "b11", "note": "escrow surplus not refunded; refund check bounced"}
+{"id": "cfpb-4301045", "case_type": "NOT_COVERED", "note": "refinance denied on disputed grounds; origination"}
+{"id": "cfpb-4304400", "case_type": "NOE", "error_category": "b11", "note": "PMI-removal request ignored for three months"}
+{"id": "cfpb-4322542", "case_type": "RFI", "rfi_category": "OWNER_IDENTITY", "note": "cannot find who holds the HELOC for a short sale (HELOC; labeled by the schema's definitions)"}
+{"id": "cfpb-4380014", "case_type": "NOE", "error_category": "b2", "note": "split payments in holding account; balance off amortization"}
+{"id": "cfpb-4384835", "case_type": "NOE", "error_category": "b4", "note": "insurance not paid from escrow; unexplained $6,000 shortage"}
+{"id": "cfpb-4395095", "case_type": "NOE", "error_category": "b11", "note": "bankruptcy flag kept despite discharge; blocks refinance"}
+{"id": "cfpb-4396594", "case_type": "NOE", "error_category": "b4", "note": "taxes not paid from escrow; partial refund only"}
+{"id": "cfpb-4402809", "case_type": "NOE", "error_category": "b8", "note": "forwarded payments misapplied after transfer; default calls; credit hit"}
+{"id": "cfpb-4411778", "case_type": "LOSS_MIT", "note": "asks review of modification package to avoid foreclosure"}
+{"id": "cfpb-4427343", "case_type": "NOE", "error_category": "b5", "note": "$25 bad-check fee after servicer double-charged"}
+{"id": "cfpb-4464819", "case_type": "NOE", "error_category": "b11", "note": "refinance applied to wrong lien; credit reporting not corrected"}
+{"id": "cfpb-4474388", "case_type": "RFI", "rfi_category": "OWNER_IDENTITY", "note": "asks for records of the loan's sale/assignment chain"}
+{"id": "cfpb-4484958", "case_type": "RFI", "rfi_category": "OTHER", "note": "demands a copy of the contract as transferred to HUD"}
+{"id": "cfpb-4495623", "case_type": "NOE", "error_category": "b4", "note": "insurance not paid from escrow two years running; policy lapsed"}
+{"id": "cfpb-4499870", "case_type": "NOT_COVERED", "note": "refinance stuck at 80 days; origination"}
+{"id": "cfpb-4502334", "case_type": "NOE", "error_category": "b2", "note": "$5,900 paid during forbearance sits in unapplied funds; modification denied after document loop"}
+{"id": "cfpb-4526976", "case_type": "NOT_COVERED", "note": "loan officer withheld Loan Estimate; origination"}
+{"id": "cfpb-4566271", "case_type": "NOE", "error_category": "b5", "note": "escrow charged for lender-placed insurance though insured throughout"}
+{"id": "cfpb-4566935", "case_type": "LOSS_MIT", "note": "asks extension of modification / pandemic forbearance"}
+{"id": "cfpb-4567696", "case_type": "NOT_COVERED", "note": "purchase loan delayed past settlement; origination"}
+{"id": "cfpb-4567876", "case_type": "NOE", "error_category": "b1", "note": "servicer refuses the missed COVID payments; pushes 9.5%/40-yr modification"}
+{"id": "cfpb-4574252", "case_type": "NOT_COVERED", "note": "misleading mailer; not a borrower"}
+{"id": "cfpb-4574676", "case_type": "NOE", "error_category": "b11", "note": "escrow analysis built on an overpaid tax bill; payment doubled"}
+{"id": "cfpb-4582729", "case_type": "LOSS_MIT", "note": "short-sale offers refused; wants a workable resolution"}
+{"id": "cfpb-4597452", "case_type": "NOE", "error_category": "b2", "note": "$1,000 in suspense cannot be applied to the payment"}
+{"id": "cfpb-4606707", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks the appraiser's name and license for a 2010 appraisal"}
+{"id": "cfpb-4621082", "case_type": "LOSS_MIT", "note": "asks recalculated modification with $10,000 down instead of $22,000"}
+{"id": "cfpb-4699991", "case_type": "NOE", "error_category": "b7", "note": "application denied though documents supplied; foreclosure letters; no explanation"}
+{"id": "cfpb-4727229", "case_type": "LOSS_MIT", "note": "modification pending since spring; 37 emails; account disabled"}
+{"id": "cfpb-4729576", "case_type": "NOE", "error_category": "b11", "note": "escrow collecting a county tax that does not exist; QWR address refused"}
+{"id": "cfpb-4750359", "case_type": "NOE", "error_category": "b9", "note": "assistance application sent twice, then referred to foreclosure counsel after a deferral matured"}
+{"id": "cfpb-4765256", "case_type": "NOE", "error_category": "b11", "note": "lien never released after a payoff ~20 years ago"}
+{"id": "cfpb-4788359", "case_type": "NOE", "error_category": "b4", "note": "insurance lapsed twice from escrow non-payment; fee demanded to drop escrow"}
+{"id": "cfpb-4791390", "case_type": "NOE", "error_category": "b11", "note": "insurance paid twice from escrow, no refund, account transferred"}
+{"id": "cfpb-4792154", "case_type": "NOT_COVERED", "note": "'friendly reminder' collection calls while not in default; conduct complaint"}
+{"id": "cfpb-4795628", "case_type": "PAYOFF_REQUEST", "note": "executor cannot obtain a payoff figure for a sale"}
+{"id": "cfpb-4802045", "case_type": "NOE", "error_category": "b1", "note": "transferee cannot accept a payment for weeks; $15 fee for online/phone payment"}
+{"id": "cfpb-4803797", "case_type": "LOSS_MIT", "note": "modification application sent five times, receipt never confirmed"}
+{"id": "cfpb-4804582", "case_type": "NOE", "error_category": "b11", "note": "$91,000 insurance-claim check held for an adjuster's worksheet that cannot exist"}
+{"id": "cfpb-4811593", "case_type": "LOSS_MIT", "note": "told to pay six pre-COVID payments before any deferment/modification"}
+{"id": "cfpb-4825172", "case_type": "NOE", "error_category": "b11", "note": "180/60-day late marks during a believed forbearance; asks removal"}
+{"id": "cfpb-4826576", "case_type": "NOE", "error_category": "b11", "note": "insurance premiums disbursed from escrow 60 days early, before the borrower could review"}
+{"id": "cfpb-4846617", "case_type": "NOE", "error_category": "b11", "note": "PMI-removal authorization received twice, still 'required'; two months of runaround"}
+{"id": "cfpb-4921424", "case_type": "NOE", "error_category": "b1", "note": "servicer refuses a state/federal assistance payment that would reinstate the loan"}
+{"id": "cfpb-4941298", "case_type": "NOE", "error_category": "b11", "note": "lien release missing on a deceased parent's paid-off loan; closing pending"}
+{"id": "cfpb-4961301", "case_type": "NOE", "error_category": "b5", "note": "$3,900 in disputed late fees carried across transfers block a grant"}
+{"id": "cfpb-4961491", "case_type": "LOSS_MIT", "note": "modification denied pending third-party info; borrower appealing"}
+{"id": "cfpb-4966057", "case_type": "LOSS_MIT", "note": "HUD-submitted modification refused; wants an affordable plan without $80k upfront"}
+{"id": "cfpb-4971419", "case_type": "LOSS_MIT", "note": "non-borrower occupant wants a payment plan; money orders returned"}
+{"id": "cfpb-4973190", "case_type": "NOT_COVERED", "note": "cannot withdraw a refinance application online; origination"}
+{"id": "cfpb-4979712", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks why escrow payments changed without notice; reports new insurance; contact form broken"}
+{"id": "cfpb-5046494", "case_type": "NOE", "error_category": "b11", "note": "deed never delivered after a contract-for-deed was paid in full"}
+{"id": "cfpb-5056584", "case_type": "NOE", "error_category": "b11", "note": "reported delinquent after the loan was paid in full at sale"}
+{"id": "cfpb-5061495", "case_type": "NOE", "error_category": "b11", "note": "$10,000 insurance-claim check held pending an adjuster report never requested"}
+{"id": "cfpb-5086563", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks how to submit an appraisal for PMI removal; no reply in 31 days"}
+{"id": "cfpb-5103730", "case_type": "NOE", "error_category": "b10", "note": "house auctioned five months after a fully executed short-sale contract"}
+{"id": "cfpb-5106901", "case_type": "NOE", "error_category": "b11", "note": "PMI appraisal paid for, never ordered"}
+{"id": "cfpb-5117498", "case_type": "NOE", "error_category": "b2", "note": "escrow-shortage check applied to the mortgage payment instead"}
+{"id": "cfpb-5123248", "case_type": "NOE", "error_category": "b8", "note": "post-transfer statements show wrong amount and a past-due balance; prior payment not carried"}
+{"id": "cfpb-5148891", "case_type": "NOT_COVERED", "note": "refinance declined after 225 days; origination"}
+{"id": "cfpb-5181443", "case_type": "NOT_COVERED", "note": "refinance application fee refund; origination"}
+{"id": "cfpb-5186765", "case_type": "NOE", "error_category": "b2", "note": "$990 of a principal payment sitting in unapplied funds"}
+{"id": "cfpb-5190556", "case_type": "NOE", "error_category": "b7", "note": "told payments could resume after furlough; now told full lump sum or foreclosure"}
+{"id": "cfpb-5195548", "case_type": "NOE", "error_category": "b7", "note": "cites 1024.35(b)(7)/(11); wants an itemized accounting of modification documents"}
+{"id": "cfpb-5214520", "case_type": "NOE", "error_category": "b2", "note": "$340,000 payoff received but never applied; late notices from transferee"}
+{"id": "cfpb-5215808", "case_type": "NOE", "error_category": "b5", "note": "force-placed insurance and 'default related cost' fees without notice; insured throughout"}
+{"id": "cfpb-5225029", "case_type": "NOE", "error_category": "b1", "note": "automated payment with confirmation number never processed; late fee"}
+{"id": "cfpb-5330270", "case_type": "RFI", "rfi_category": "OTHER", "note": "co-borrower asks for loan statements the bank refuses to send"}
+{"id": "cfpb-5347574", "case_type": "NOE", "error_category": "b11", "note": "servicer will not sign the state assistance purchase order; foreclosure letters"}
+{"id": "cfpb-5378776", "case_type": "NOE", "error_category": "b11", "note": "lien recorded and not released after payoff; prior NOE unanswered"}
+{"id": "cfpb-5412344", "case_type": "NOE", "error_category": "b11", "note": "servicer refuses to confirm successors in interest"}
+{"id": "cfpb-5480128", "case_type": "NOE", "error_category": "b2", "note": "$15,000 HAF payment received but suspended, not applied; $22,000 demanded"}
+{"id": "cfpb-5500383", "case_type": "NOT_COVERED", "note": "home-equity application fees after cancellation; origination"}
+{"id": "cfpb-5501570", "case_type": "NOT_COVERED", "note": "wire fraud at purchase closing; not servicing"}
+{"id": "cfpb-5532798", "case_type": "NOE", "error_category": "b4", "note": "spring taxes not paid from escrow; only half of the bill disbursed; penalty"}
+{"id": "cfpb-5559354", "case_type": "NOE", "error_category": "b2", "note": "post-petition payments not credited, late fees, force-placed insurance; also wants a modification"}
+{"id": "cfpb-5672716", "case_type": "NOT_COVERED", "note": "refinance closing failed to pay a debt listed in the closing papers; origination"}
+{"id": "cfpb-5747571", "case_type": "NOE", "error_category": "b11", "note": "HAF award sent to servicer, servicer says not received; in foreclosure"}
+{"id": "cfpb-5749918", "case_type": "NOE", "error_category": "b11", "note": "surviving co-owner sent proof of death; servicer will not communicate or accept payment"}
+{"id": "cfpb-5750209", "case_type": "NOE", "error_category": "b7", "note": "told no interest during forbearance; balance rose $30,000 after modification"}
+{"id": "cfpb-5923511", "case_type": "NOE", "error_category": "b2", "note": "regular payment made early applied entirely to principal; payment still shows due"}
+{"id": "cfpb-5939813", "case_type": "NOE", "error_category": "b4", "note": "insurance premium not paid from escrow; $1,800 charged; shortage miscalculated"}
+{"id": "cfpb-6013373", "case_type": "NOE", "error_category": "b11", "note": "$9,600 in hazard-insurance disbursements in one month; loan-number changes"}
+{"id": "cfpb-6072645", "case_type": "NOE", "error_category": "b11", "note": "missing payment, reversed payment, phantom escrow overage; wrong balances at transfer"}
+{"id": "cfpb-6072901", "case_type": "NOE", "error_category": "b11", "note": "escrow portion posted as $0 for months, then repeated shortages"}
+{"id": "cfpb-6073479", "case_type": "NOT_COVERED", "note": "HELOC application denied on a land-use code; origination"}
+{"id": "cfpb-6082898", "case_type": "LOSS_MIT", "note": "asks servicer to accept a HAF grant it does not yet participate in"}
+{"id": "cfpb-6086039", "case_type": "NOE", "error_category": "b4", "note": "flood premium paid late to the wrong carrier; policy cancelled"}
+{"id": "cfpb-6090045", "case_type": "NOE", "error_category": "b11", "note": "PMI collected for 11 years; refund claimed"}
+{"id": "cfpb-6121742", "case_type": "NOE", "error_category": "b10", "note": "assumption under review yet home put back on sheriff's sale"}
+{"id": "cfpb-6137446", "case_type": "NOE", "error_category": "b4", "note": "flood insurance not paid from escrow; policy cancelled; 10x premium"}
+{"id": "cfpb-6144916", "case_type": "NOE", "error_category": "b7", "note": "never told deferred forbearance payments were due in full; foreclosure referral; credit mark after payoff"}
+{"id": "cfpb-6165302", "case_type": "NOE", "error_category": "b2", "note": "$1,200 overage held as 'partial payment unapplied'; wants it refunded"}
+{"id": "cfpb-6165714", "case_type": "NOE", "error_category": "b11", "note": "transfer notice arrived after the due date; cannot add a payment account"}
+{"id": "cfpb-6174731", "case_type": "NOE", "error_category": "b2", "note": "balance not moving on a fixed-rate loan despite payments; wants loan documents"}
+{"id": "cfpb-6217627", "case_type": "NOE", "error_category": "b3", "note": "payment posted after the grace period; late fee despite HAF assurance"}
+{"id": "cfpb-6226689", "case_type": "NOE", "error_category": "b11", "note": "signed, notarized modification not reflected in statements after months"}
+{"id": "cfpb-6261062", "case_type": "NOE", "error_category": "b8", "note": "HAF payments to prior servicer not forwarded after transfer; delinquent"}
+{"id": "cfpb-6351150", "case_type": "NOE", "error_category": "b2", "note": "approved modification not booked; payments applied to deferred arrears; notice of default"}
+{"id": "cfpb-6396902", "case_type": "NOE", "error_category": "b10", "note": "home sold a month after assistance documents were completed; no foreclosure notice"}
+{"id": "cfpb-6419199", "case_type": "NOE", "error_category": "b11", "note": "ARM rate raised beyond the note's 2% annual cap"}
+{"id": "cfpb-6419248", "case_type": "LOSS_MIT", "note": "hardship packet mailed; months of unreturned calls"}
+{"id": "cfpb-6420961", "case_type": "NOE", "error_category": "b11", "note": "PMI removal denied on a payment-history ground the disclosure contradicts"}
+{"id": "cfpb-6433745", "case_type": "NOE", "error_category": "b5", "note": "$1,600 for retroactive lender-placed insurance"}
+{"id": "cfpb-6435070", "case_type": "NOT_COVERED", "note": "FDCPA-styled demand at a foreclosure law firm; no servicing error identified"}
+{"id": "cfpb-6437229", "case_type": "NOE", "error_category": "b11", "note": "foreclosure started on a lot with every payment on time; $17,000 in legal fees"}
+{"id": "cfpb-6452402", "case_type": "NOT_COVERED", "note": "neighbor took possession of the house; not a servicing matter"}
+{"id": "cfpb-6472558", "case_type": "NOE", "error_category": "b5", "note": "late fees called erroneous; acceleration threat; escrow held"}
+{"id": "cfpb-6473157", "case_type": "NOT_COVERED", "note": "loan officer conduct on a new application; origination"}
+{"id": "cfpb-6475195", "case_type": "NOT_COVERED", "note": "incoherent; loan sold, falsified documents, business account closed"}
+{"id": "cfpb-6475509", "case_type": "NOE", "error_category": "b11", "note": "PMI valuation fee kept after servicer said borrower was ineligible anyway"}
+{"id": "cfpb-6476759", "case_type": "NOE", "error_category": "b11", "note": "$1,500 PMI refund not remitted; $100 fee payment shown unallocated"}
+{"id": "cfpb-6487504", "case_type": "NOE", "error_category": "b1", "note": "full payment accepted with confirmation number, then returned"}
+{"id": "cfpb-6488018", "case_type": "NOE", "error_category": "b11", "note": "escrow refund mailed to the sold house; not reissued after 26 months"}
+{"id": "cfpb-6488436", "case_type": "NOT_COVERED", "note": "duplicate hard inquiries on an application; origination"}
+{"id": "cfpb-6491936", "case_type": "NOE", "error_category": "b11", "note": "double draft after transfer; $6,100 held 16+ days"}
+{"id": "cfpb-6529156", "case_type": "NOE", "error_category": "b11", "note": "escrow analyses overstate taxes and insurance by thousands"}
+{"id": "cfpb-6535458", "case_type": "NOE", "error_category": "b11", "note": "escrow drained for a cancelled policy; shortage; no online access after assumption"}
+{"id": "cfpb-6546511", "case_type": "NOE", "error_category": "b11", "note": "no transfer notice reached borrower overseas; late marks refused correction"}
+{"id": "cfpb-6553183", "case_type": "NOE", "error_category": "b5", "note": "late fees inside the 60-day post-transfer window on a never-late loan"}
+{"id": "cfpb-6597650", "case_type": "NOE", "error_category": "b4", "note": "property taxes not paid from escrow; servicer insists they were"}
+{"id": "cfpb-6607991", "case_type": "LOSS_MIT", "note": "second lien resurfaced after ten years; wants an affordable settlement"}
+{"id": "cfpb-6624156", "case_type": "NOE", "error_category": "b2", "note": "payments at the old escrow amount not posted after escrow doubled"}
+{"id": "cfpb-6629492", "case_type": "NOE", "error_category": "b11", "note": "ARM adjusted twice in two months after transfer"}
+{"id": "cfpb-6642721", "case_type": "NOE", "error_category": "b11", "note": "insurance rebuild funds withheld pending a contractor and inspection that cannot exist yet"}
+{"id": "cfpb-6682698", "case_type": "NOE", "error_category": "b11", "note": "escrow charge and negative escrow balance on a loan with no escrow"}
+{"id": "cfpb-6752671", "case_type": "NOE", "error_category": "b11", "note": "$3,200 sent from escrow to the prior lender though $1,200 was collected at closing"}
+{"id": "cfpb-6754769", "case_type": "NOE", "error_category": "b11", "note": "partial-year tax bill annualised; shortage; payment raised without notice"}
+{"id": "cfpb-6755392", "case_type": "NOT_COVERED", "note": "telemarketing calls; not a borrower of this company"}
+{"id": "cfpb-6773629", "case_type": "NOE", "error_category": "b1", "note": "reinstatement payment refused during foreclosure; payoff quote demanded"}
+{"id": "cfpb-6845866", "case_type": "NOE", "error_category": "b3", "note": "early payments reversed and re-posted on the due date"}
+{"id": "cfpb-6881412", "case_type": "NOT_COVERED", "note": "FHA purchase approval cancelled before closing; origination"}
+{"id": "cfpb-6892298", "case_type": "NOE", "error_category": "b5", "note": "$610 flood insurance drawn from escrow despite HOA master policy"}
+{"id": "cfpb-6937342", "case_type": "NOE", "error_category": "b1", "note": "bill-pay payment rejected and returned; late fee; credit drop"}
+{"id": "cfpb-6981625", "case_type": "NOE", "error_category": "b11", "note": "homestead exemption forms not processed; escrow payment raised; account lockouts"}
+{"id": "cfpb-6989182", "case_type": "NOE", "error_category": "b11", "note": "estate representative never notified of foreclosure; asks $3,900 fees waived"}
+{"id": "cfpb-6990959", "case_type": "NOE", "error_category": "b11", "note": "servicer will not respond to the HAF program; arrears booked as a second mortgage"}
+{"id": "cfpb-7073154", "case_type": "LOSS_MIT", "note": "dormant second mortgage revived; asks for help before lawsuit"}
+{"id": "cfpb-7097382", "case_type": "NOE", "error_category": "b2", "note": "payment returned, re-sent, still not recognized despite bank statements"}
+{"id": "cfpb-7102468", "case_type": "NOE", "error_category": "b1", "note": "partial payment of COVID-deferred amount refused; full sum demanded"}
+{"id": "cfpb-7113186", "case_type": "NOE", "error_category": "b4", "note": "insurance renewal sent to a wrong address from escrow; lapse discovered a year later; force-placement threatened"}
+{"id": "cfpb-7121687", "case_type": "RFI", "rfi_category": "OWNER_IDENTITY", "note": "demands proof of holder in due course and accounting; foreclosure started"}
+{"id": "cfpb-7153588", "case_type": "NOT_COVERED", "note": "seller disputes buyer's appraisal; origination"}
+{"id": "cfpb-7156078", "case_type": "RFI", "rfi_category": "OWNER_IDENTITY", "note": "three companies deny holding the loan; asks who the servicer is"}
+{"id": "cfpb-7180564", "case_type": "LOSS_MIT", "note": "choosing between servicer modification and state assistance; explains delay"}
+{"id": "cfpb-7213684", "case_type": "NOE", "error_category": "b7", "note": "told six deferred payments would go to end of loan; now demanded in full; payment refused (HELOC; labeled by the schema's definitions)"}
+{"id": "cfpb-7243017", "case_type": "RFI", "rfi_category": "OTHER", "note": "asks in writing how the assumption debt ratio was calculated"}
+{"id": "cfpb-7258606", "case_type": "NOE", "error_category": "b4", "note": "insurance not paid after transfer; policy cancelled; force-placement notice"}
+{"id": "cfpb-7273450", "case_type": "NOE", "error_category": "b8", "note": "payment drafted by old servicer not forwarded; new servicer shows three months due"}
+{"id": "cfpb-7300146", "case_type": "LOSS_MIT", "note": "modification denied for insufficient income; 30-day appeal window; wants affordable payment"}
+{"id": "cfpb-7300927", "case_type": "NOE", "error_category": "b9", "note": "foreclosure filed before modification paperwork arrived, under a disaster moratorium; insurance checks held"}
+{"id": "cfpb-7307997", "case_type": "RFI", "rfi_category": "OTHER", "note": "wants the entire loan file: history, application, deed, note, statements"}
+{"id": "cfpb-7310848", "case_type": "NOT_COVERED", "note": "refinance appraisal fee refund; origination"}
+{"id": "cfpb-7356395", "case_type": "NOE", "error_category": "b11", "note": "HELOC interest not recalculated for mid-month principal payments (HELOC; labeled by the schema's definitions)"}
+{"id": "cfpb-7368915", "case_type": "NOE", "error_category": "b5", "note": "late fees after paperless enrollment stopped statements (HELOC; labeled by the schema's definitions)"}
+{"id": "cfpb-7370806", "case_type": "NOE", "error_category": "b3", "note": "HAF payments received and held for weeks before posting; late fees"}
+{"id": "cfpb-7404946", "case_type": "NOE", "error_category": "b11", "note": "post-forbearance modification signed yet foreclosure auction set; returned partial-payment check"}
+{"id": "cfpb-7411481", "case_type": "NOE", "error_category": "b2", "note": "first payments reversed by servicer; reported late"}
+{"id": "cfpb-7416858", "case_type": "NOE", "error_category": "b5", "note": "late fee after paperless enrollment produced no bill; asks waiver"}
+{"id": "cfpb-7465760", "case_type": "NOE", "error_category": "b2", "note": "check meant for escrow applied to principal again"}
+{"id": "cfpb-7531458", "case_type": "NOT_COVERED", "note": "lender withholds appraisal transfer on a purchase; origination"}
+{"id": "cfpb-7584496", "case_type": "NOT_COVERED", "note": "corporate hard-money rehab loan; holdback and payoff dispute; not a consumer servicing matter"}
+{"id": "cfpb-7586480", "case_type": "NOE", "error_category": "b11", "note": "second mortgage paid off; no reconveyance or overpayment refund after 65 days"}
+{"id": "cfpb-7645433", "case_type": "NOE", "error_category": "b1", "note": "cannot pay during transfer; daily interest accrues"}
+{"id": "cfpb-7706518", "case_type": "NOE", "error_category": "b11", "note": "told one year to request a recast; later told deadline passed and $10,000 more required"}
+{"id": "cfpb-7778755", "case_type": "NOE", "error_category": "b6", "note": "two payoff figures paid; balance still shows; loan transferring tomorrow"}
+{"id": "cfpb-7793862", "case_type": "NOE", "error_category": "b11", "note": "dormant second lien foreclosing at maturity; claims time-barred"}
+{"id": "cfpb-7793914", "case_type": "NOE", "error_category": "b11", "note": "$12,000 escrow refund 'mailed' and voided repeatedly over 8 months"}
+{"id": "cfpb-7814402", "case_type": "NOE", "error_category": "b8", "note": "ARM index changed after transfer; rate 7.11% to 8.874%"}
+{"id": "cfpb-7819896", "case_type": "NOE", "error_category": "b11", "note": "$4,900 escrow refund check cashed by a stranger; servicer will not reissue"}
+{"id": "cfpb-7846437", "case_type": "LOSS_MIT", "note": "chooses HAF over partial claim; waiting on servicer's response to the program"}
+{"id": "cfpb-7879009", "case_type": "NOE", "error_category": "b11", "note": "escrow analysis run on the pre-modification payment; surplus vs shortage contradiction"}
+{"id": "cfpb-7882448", "case_type": "NOE", "error_category": "b11", "note": "duplicate insurance payment after payoff returned to servicer, not refunded"}
+{"id": "cfpb-7886485", "case_type": "NOE", "error_category": "b6", "note": "$29,000 partial-claim payoff on the seller statement with no documentation"}
+{"id": "cfpb-7908392", "case_type": "LOSS_MIT", "note": "years of failed modification attempts; wants to stay in the home"}
+{"id": "cfpb-7921013", "case_type": "RFI", "rfi_category": "OTHER", "note": "subservicer offline after ransomware; asks what to do about payments"}
+{"id": "cfpb-7921204", "case_type": "NOE", "error_category": "b1", "note": "cannot make a payment for weeks after servicer breach"}
+{"id": "cfpb-7945674", "case_type": "NOE", "error_category": "b2", "note": "payment drafted from bank but not recorded; system lost bank info"}
+{"id": "cfpb-8000910", "case_type": "NOT_COVERED", "note": "reverse mortgage misrepresented at origination"}
+{"id": "cfpb-8075358", "case_type": "NOT_COVERED", "note": "$500 refinance fee refund; origination"}
+{"id": "cfpb-8090662", "case_type": "LOSS_MIT", "note": "forbearance extension status contradicted by four representatives"}
+{"id": "cfpb-8094010", "case_type": "NOE", "error_category": "b11", "note": "home placed on a municipal foreclosure registry while not in foreclosure"}
+{"id": "cfpb-8114943", "case_type": "NOE", "error_category": "b5", "note": "lender-placed insurance charged after proof provided twice"}
+{"id": "cfpb-8157348", "case_type": "NOE", "error_category": "b11", "note": "repeated false 'payment late' letters inside the grace period; asked to stop"}
+{"id": "cfpb-8171526", "case_type": "NOT_COVERED", "note": "post-auction eviction; wants to discuss buying back; not a servicing request"}
+{"id": "cfpb-8214132", "case_type": "RFI", "rfi_category": "OTHER", "note": "cannot access statements and tax documents without dropping paper delivery"}
+{"id": "cfpb-8227590", "case_type": "NOT_COVERED", "note": "home-equity application denied; discrimination claim; origination"}
+{"id": "cfpb-8231441", "case_type": "NOE", "error_category": "b11", "note": "assistance application processed without authorization on a discharged debt"}
+{"id": "cfpb-8250586", "case_type": "NOE", "error_category": "b5", "note": "$1,700 force-placed hazard insurance despite policy on file and in portal"}
+{"id": "cfpb-8256651", "case_type": "NOE", "error_category": "b5", "note": "PMI still charged after the removal letter; 78% reached earlier"}
+{"id": "cfpb-8269795", "case_type": "LOSS_MIT", "note": "asks sale date rescinded to complete a refinance; mitigation down payment too high (HELOC)"}

@@ -1,5 +1,6 @@
 """Labeled triage set. Synthetic on purpose — the CFPB public complaint database stopped exposing consumer
-narratives, so there is no public corpus of real borrower letters. Labels are ground truth by construction:
+narratives in 2025, so there is no current public corpus of real borrower letters (the older narratives are
+mirrored elsewhere; cfpb.py builds the real set from them). Labels are ground truth by construction:
 each letter was written to be one thing, with the traps a mailroom actually sees (no loan number, several
 asks in one letter, lawyer letters, payoff inside an RFI, a dispute phrased politely, OCR-style noise).
 

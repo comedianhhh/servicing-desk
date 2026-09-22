@@ -7,6 +7,7 @@ which provider produced the proposal. AI Studio's free tier makes this the zero-
 from __future__ import annotations
 
 import logging
+import random
 import time
 from datetime import date
 
@@ -19,6 +20,8 @@ from .schema import TriageProposal
 
 log = logging.getLogger("gemini")
 RETRY_STATUS = {429, 503}
+RETRY_ATTEMPTS = 9
+RETRY_CAP = 90.0  # seconds; 3, 6, 12, 24, 48, 90, 90, 90 with jitter ≈ 6 minutes of patience
 
 
 def propose(
@@ -26,9 +29,11 @@ def propose(
 ) -> tuple[TriageProposal, str]:
     """`temperature` is 0 for the desk (one deterministic proposal) and >0 only for evals/votes.py, which samples."""
     client = client or genai.Client(api_key=settings.gemini_api_key)
-    # The free tier answers 503 "high demand" in bursts; a short backoff keeps a busy minute from being
-    # treated as a poisoned message by the worker. Anything else propagates.
-    for attempt in range(6):
+    # The free tier answers 503 "high demand" in bursts and 429 when the per-minute rate is exceeded; backing
+    # off keeps a busy minute from being treated as a poisoned message by the worker. Linear 3s steps over six
+    # attempts (~1 minute) turned out to be too short: a 300-letter eval run died on a demand spike that lasted
+    # longer than that. Exponential with jitter, capped, over ~8 minutes total. Anything else propagates.
+    for attempt in range(RETRY_ATTEMPTS):
         try:
             response = client.models.generate_content(
                 model=settings.gemini_model,
@@ -42,10 +47,11 @@ def propose(
             )
             break
         except errors.APIError as e:
-            if e.code not in RETRY_STATUS or attempt == 5:
+            if e.code not in RETRY_STATUS or attempt == RETRY_ATTEMPTS - 1:
                 raise
-            wait = 3 * (attempt + 1)
-            log.warning("gemini %s; retrying in %ss", e.code, wait)
+            # Jitter so parallel workers that hit the same spike do not retry in lockstep.
+            wait = min(RETRY_CAP, 3 * 2**attempt) * (0.7 + 0.6 * random.random())
+            log.warning("gemini %s; retrying in %.0fs (attempt %d/%d)", e.code, wait, attempt + 1, RETRY_ATTEMPTS)
             time.sleep(wait)
     parsed = response.parsed
     if not isinstance(parsed, TriageProposal):
