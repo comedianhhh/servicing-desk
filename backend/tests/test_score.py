@@ -84,8 +84,9 @@ def test_decide_routes_category_and_flags(monkeypatch):
             return 0.0
         if desc.startswith("imposing a fee"):
             return 0.0
+        # The yes/no options now carry each exception's own descriptions, so the fake matches on those.
         if desc == "yes":
-            return 2.0 if S._CURRENT.get("q", "").startswith("Is the following true of the letter? the letter does not identify") else -6.0
+            return 2.0 if S._CURRENT.get("q", "").startswith("Is the following true of the letter? the letter complains about the loan as a whole") else -6.0
         if desc == "no":
             return 0.0
         return -6.0
@@ -102,7 +103,14 @@ def test_decide_routes_category_and_flags(monkeypatch):
     d = S.decide("letter", RECEIVED)
     assert d.case_type.top == "NOE" and d.category and d.category.top == "b5"
     assert d.flags == ["OVERBROAD"]
+    assert set(d.exceptions) == {"OVERBROAD", "DUPLICATIVE", "UNTIMELY"}  # §1024.35(g)(1): the NOE exceptions only
     assert d.diagnostics()["prefills"] == calls["completion"]
+
+
+def test_exceptions_are_judged_only_where_the_rule_has_them(monkeypatch):
+    _fake_server(monkeypatch, lambda desc: 0.0 if desc.startswith("a request for a modification") or desc == "yes" else -6.0)
+    d = S.decide("letter", RECEIVED)
+    assert d.case_type.top == "LOSS_MIT" and d.exceptions == {} and d.flags == []  # a yes-happy model, nothing to say yes to
 
 
 def test_propose_overrides_enumerated_fields_only(monkeypatch):
@@ -110,7 +118,13 @@ def test_propose_overrides_enumerated_fields_only(monkeypatch):
     proposal, model = S.propose("Please send me the payoff amount. Rebecca Lindqvist, loan 5510-220-9931", received_on=RECEIVED)
     assert proposal.case_type == "PAYOFF_REQUEST" and proposal.error_category is None and proposal.exception_candidates == []
     assert proposal.three_elements.loan_identifier.value == "5510-220-9931"  # extraction still from the base provider
-    assert 0 < proposal.confidence <= 1 and proposal._scores["case_type"]["probs"]["PAYOFF_REQUEST"] == proposal.confidence
+    assert 0 < proposal.confidence <= 1
+    # confidence is the calibrated (log-space, temperature-scaled) number; the vote share stays in diagnostics
+    logp = proposal._scores["case_type"]["logp"]
+    t = S.settings.score_temperature
+    z = sum(math.exp((v - max(logp.values())) / t) for v in logp.values())
+    assert abs(proposal.confidence - math.exp((logp["PAYOFF_REQUEST"] - max(logp.values())) / t) / z) < 1e-3
+    assert proposal._scores["case_type"]["probs"]["PAYOFF_REQUEST"] > 0.9
     assert model.endswith("+score:" + S.settings.score_model)
 
 
@@ -119,3 +133,40 @@ def test_label_must_be_one_token(monkeypatch):
     S._label_ids.clear()
     with pytest.raises(ValueError, match="not a single token"):
         S.label_token_id("A")
+
+
+def test_judge_keeps_short_options_and_an_unclear_escape(monkeypatch):
+    """Bare options here on purpose (see judge's docstring: the long descriptions help Jev and hurt a 4B),
+    and doubt has somewhere to go instead of leaking into yes."""
+    seen = {}
+
+    def lp(desc):
+        seen.setdefault("descs", set()).add(desc)
+        return 0.0 if desc == S.UNCLEAR_OPTION else -3.0
+
+    _fake_server(monkeypatch, lp)
+    c = S.judge("letter", RECEIVED, S.EXCEPTIONS["CONFIDENTIAL"])
+    assert c.top == "UNCLEAR"
+    assert seen["descs"] == {"yes", "no", S.UNCLEAR_OPTION}
+    assert c.rotations == 3
+
+
+def test_confidence_averages_in_log_space_and_respects_temperature(monkeypatch):
+    """Two rotations that disagree by a hair should not read as a 50/50 vote: the logit average keeps the
+    margin, and a higher temperature only flattens it."""
+    options = {"NOE": "notice of error", "RFI": "request for info"}
+    calls = {"n": 0}
+
+    def lp(desc):
+        calls["n"] += 1
+        # rotation 1: NOE ahead by 3 nats; rotation 2 (options reversed): NOE ahead by 0.1 nats
+        return {"notice of error": 0.0, "request for info": -3.0 if calls["n"] <= 2 else -0.1}[desc]
+
+    _fake_server(monkeypatch, lp)
+    monkeypatch.setattr(S.settings, "score_temperature", 1.0)
+    c = S.choose("letter", RECEIVED, "What is it?", options)
+    assert c.top == "NOE" and c.flips == 0
+    assert len(c.logprobs) == 2 and len(c.logprobs[0]) == 2
+    assert c.confidence > c.probs["NOE"] - 0.05  # not degraded to a vote share
+    monkeypatch.setattr(S.settings, "score_temperature", 10.0)
+    assert 0.5 < c.confidence < 0.7  # flattened toward uniform, still ordered

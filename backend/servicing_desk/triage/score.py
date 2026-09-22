@@ -10,8 +10,9 @@ re-normalised among themselves (restricted softmax). Because small models prefer
 every decision is scored under several rotations of the option order and the distributions are averaged; the
 number of rotations whose top answer disagreed is kept as a diagnostic.
 
-The `confidence` this produces is the averaged top-1 probability of `case_type`. Unlike the self-reported
-number a generating model puts in a JSON field, it is a quantity the evals can calibrate against.
+The `confidence` this produces is the top-1 probability of `case_type` after averaging the rotations in log
+space and temperature scaling (`score_temperature`, fit by evals/conformal.py). Unlike the self-reported
+number a generating model puts in a JSON field, it is a quantity the evals can calibrate — and did.
 """
 
 from __future__ import annotations
@@ -58,15 +59,57 @@ RFI_CATEGORIES: dict[str, str] = {
     "OWNER_IDENTITY": "the letter asks who owns, holds, or is the assignee of the loan or note",
     "OTHER": "the letter asks for any other information about the loan",
 }
-EXCEPTIONS: dict[str, str] = {
-    "OVERBROAD": "the letter does not identify a specific error or a specific piece of information; it asks for "
-    "everything or complains about the loan in general",
-    "DUPLICATIVE": "the letter itself says the borrower already sent this same notice or request before",
-    "UNTIMELY": "the letter itself says the loan was paid off, discharged, or transferred to another servicer more "
-    "than one year before the received date on the letter tag",
-    "CONFIDENTIAL": "the letter asks for confidential, proprietary, or privileged information of the servicer",
-    "IRRELEVANT": "the letter asks for information that is not about this borrower's loan",
-    "BURDENSOME": "answering would be unduly burdensome: an unreasonable volume of documents or open-ended demand",
+# Each exception carries the statement being judged and a description of what a yes and a no look like.
+# Spelling out the *no* is not decoration: a binary judgement with only the yes described leans yes, which is
+# how round 4 produced OVERBROAD on 56 % of real complaints. TypeSafe's own Noul documentation and playground
+# show the same shape (`criteria: {true, false}`), and both providers are given the same text so the evals
+# compare decision layers rather than prompts.
+EXCEPTIONS: dict[str, dict[str, str]] = {
+    "OVERBROAD": {
+        "statement": "the letter complains about the loan as a whole, or asks for all records about it, without "
+        "naming any particular error or any particular document",
+        "true": "The complaint or request covers the loan in general — everything that has gone wrong, the whole "
+        "history, every record — and names no particular error and no particular document.",
+        "false": "The letter names at least one concrete thing: a specific fee, payment, escrow item, statement, "
+        "document, or event.",
+    },
+    "DUPLICATIVE": {
+        "statement": "the letter itself says the borrower already sent this same notice or request before",
+        "true": "The letter says the borrower sent this same notice or request before, or refers to an earlier "
+        "letter of their own on the same subject.",
+        "false": "The letter raises the matter for the first time, or its earlier contact was about something else.",
+    },
+    "UNTIMELY": {
+        "statement": "the letter itself says the loan was paid off, discharged, or transferred to another servicer "
+        "more than one year before the received date on the letter tag",
+        "true": "The letter says the loan was paid off, discharged, or transferred away, and says it happened more "
+        "than a year before the received date on the letter tag.",
+        "false": "The loan is still open, or the payoff, discharge or transfer is recent, undated, or only implied.",
+    },
+    "CONFIDENTIAL": {
+        "statement": "the letter asks for confidential, proprietary, or privileged information of the servicer",
+        "true": "The letter asks for the servicer's own internal material: staff notes, legal advice, underwriting "
+        "models, investor agreements, personnel records.",
+        "false": "The letter asks about the borrower's own loan — including who owns it, how payments were applied, "
+        "escrow analyses, and copies of the borrower's own documents.",
+    },
+    "IRRELEVANT": {
+        "statement": "the letter asks for information that is not about this borrower's loan",
+        "true": "The letter asks about a different loan, a different borrower, or a matter unconnected to this "
+        "mortgage.",
+        "false": "Everything the letter asks about concerns this borrower's own mortgage loan.",
+    },
+    "BURDENSOME": {
+        "statement": "answering would be unduly burdensome: an unreasonable volume of documents or open-ended demand",
+        "true": "Answering would mean producing an unreasonable volume of material — every document in the file, "
+        "years of call recordings, an open-ended demand with no limit.",
+        "false": "The request is for a defined set of documents or facts that a servicer keeps to hand.",
+    },
+}
+
+EXCEPTIONS_FOR: dict[str, tuple[str, ...]] = {
+    "NOE": ("OVERBROAD", "DUPLICATIVE", "UNTIMELY"),
+    "RFI": tuple(EXCEPTIONS),
 }
 
 SYSTEM = (
@@ -86,10 +129,26 @@ class Choice:
     label_mass: float  # mean raw probability the model put on *any* label token — low means the prompt is off
     rotations: int
     latency_ms: float
+    # Per rotation, the restricted log-probabilities in canonical option order. Averaging probabilities turns
+    # five near-one-hot answers into a vote share; averaging *these* keeps the margins, which is what a
+    # calibration step needs (evals/conformal.py). Kept out of `probs` so the provider's confidence stays
+    # what the README documented.
+    logprobs: list[list[float]] = field(default_factory=list)
 
     @property
     def confidence(self) -> float:
-        return self.probs[self.top]
+        """Top-1 probability after averaging the rotations in log space and dividing by
+        `score_temperature`. Averaging the probabilities instead gives the share of option orders that
+        agreed — a coarser number that reads as 1.0 whenever the orders happen to agree. The temperature
+        is fit by the evals (evals/conformal.py); at 1.0 this is plain logit averaging."""
+        if not self.logprobs:
+            return self.probs[self.top]
+        names = list(self.probs)
+        mean = [sum(r[i] for r in self.logprobs) / len(self.logprobs) for i in range(len(names))]
+        t = settings.score_temperature
+        m = max(mean)
+        ws = [math.exp((x - m) / t) for x in mean]
+        return ws[names.index(self.top)] / sum(ws)
 
 
 @dataclass
@@ -104,7 +163,9 @@ class Decision:
 
     def diagnostics(self) -> dict:
         def one(c: Choice) -> dict:
-            return {"probs": {k: round(v, 4) for k, v in c.probs.items()}, "flips": c.flips, "label_mass": round(c.label_mass, 3)}
+            names = list(c.probs)
+            logp = {n: round(sum(r[i] for r in c.logprobs) / len(c.logprobs), 4) for i, n in enumerate(names)} if c.logprobs else None
+            return {"probs": {k: round(v, 4) for k, v in c.probs.items()}, "logp": logp, "flips": c.flips, "label_mass": round(c.label_mass, 3)}
 
         return {
             "case_type": one(self.case_type),
@@ -207,6 +268,7 @@ def choose(letter_text: str, received_on: date, question: str, options: dict[str
     ids = [label_token_id(LABELS[i]) for i in range(n)]
     sums = dict.fromkeys(names, 0.0)
     tops: list[str] = []
+    logprobs: list[list[float]] = []
     mass_total = 0.0
     t0 = time.perf_counter()
     for r in range(rotations):
@@ -215,8 +277,10 @@ def choose(letter_text: str, received_on: date, question: str, options: dict[str
         lps = next_token_logprobs(render(SYSTEM, user), n_probs=max(20, n + 5))
         probs, mass = _restricted_softmax(lps, ids)
         mass_total += mass
-        for name, p in zip(order, probs, strict=True):
+        by_name = dict(zip(order, probs, strict=True))
+        for name, p in by_name.items():
             sums[name] += p
+        logprobs.append([math.log(max(by_name[name], 1e-12)) for name in names])
         tops.append(order[max(range(n), key=probs.__getitem__)])
     avg = {k: v / rotations for k, v in sums.items()}
     top = max(avg, key=avg.__getitem__)
@@ -227,12 +291,29 @@ def choose(letter_text: str, received_on: date, question: str, options: dict[str
         label_mass=mass_total / rotations,
         rotations=rotations,
         latency_ms=(time.perf_counter() - t0) * 1000,
+        logprobs=logprobs,
     )
 
 
-def judge(letter_text: str, received_on: date, statement: str) -> Choice:
-    """Binary decision, scored both ways round so the letter A does not carry the answer."""
-    return choose(letter_text, received_on, f"Is the following true of the letter? {statement}", {"YES": "yes", "NO": "no"}, rotations=2)
+# Round 5: a third option. As a yes/no the small model said yes to OVERBROAD on 56 % of real complaints — a
+# long letter with many grievances "does not identify a specific error" if you squint, and squinting is what a
+# forced binary does. "Cannot tell" gives the doubt somewhere to go; only a clear yes becomes a candidate.
+UNCLEAR_OPTION = "cannot tell from the letter"
+
+
+def judge(letter_text: str, received_on: date, exception: dict[str, str]) -> Choice:
+    """Three-way decision, scored under every option order so no letter carries the answer.
+
+    The options stay bare words here. Putting each exception's `true` and `false` descriptions into the
+    options — which is what TypeSafe's Noul format prescribes and what its model wants — was tried on both
+    providers on the same 42 letters: spurious flags fell from 3 to 1 for Jev and rose from 3 to 7 for this
+    4B model, whose OVERBROAD went from 2 letters to 9. A small model scoring a multiple-choice prompt
+    degrades as the option text grows, whether the text is a negation (round 5's first attempt) or simply
+    long. The flag questions are independent of the case-type question, so giving each provider the option
+    text that works for it leaves the accuracy and calibration comparison untouched.
+    """
+    options = {"YES": "yes", "NO": "no", "UNCLEAR": UNCLEAR_OPTION}
+    return choose(letter_text, received_on, f"Is the following true of the letter? {exception['statement']}", options)
 
 
 def decide(letter_text: str, received_on: date) -> Decision:
@@ -242,7 +323,11 @@ def decide(letter_text: str, received_on: date) -> Decision:
         category = choose(letter_text, received_on, "Which kind of servicing error does the borrower assert?", ERROR_CATEGORIES)
     elif case.top == "RFI":
         category = choose(letter_text, received_on, "What does the borrower ask for?", RFI_CATEGORIES)
-    exceptions = {name: judge(letter_text, received_on, desc) for name, desc in EXCEPTIONS.items()}
+    # The exceptions exist only for notices of error (§1024.35(g)(1): duplicative, overbroad, untimely) and requests
+    # for information (§1024.36(f)(1): all six). Judging them on a hardship letter or a payoff request produced the
+    # round-4 noise — a loss-mit letter asking for "any assistance" is not an overbroad notice of anything.
+    applicable = EXCEPTIONS_FOR.get(case.top, ())
+    exceptions = {name: judge(letter_text, received_on, EXCEPTIONS[name]) for name in applicable}  # noqa: E501
     return Decision(case_type=case, category=category, exceptions=exceptions)
 
 
@@ -275,7 +360,7 @@ def propose(letter_text: str, received_on: date | None = None, *, base: str = "s
 
 def _rationale(d: Decision) -> str:
     ranked = sorted(d.case_type.probs.items(), key=lambda kv: -kv[1])[:2]
-    parts = [f"Scored {ranked[0][0]} {ranked[0][1]:.2f} vs {ranked[1][0]} {ranked[1][1]:.2f}"]
+    parts = [f"Scored {ranked[0][0]} {d.case_type.confidence:.2f} (chosen by {ranked[0][1]:.0%} of option orders) vs {ranked[1][0]}"]
     if d.category:
         parts.append(f"category {d.category.top} {d.category.confidence:.2f}")
     if d.case_type.flips:
