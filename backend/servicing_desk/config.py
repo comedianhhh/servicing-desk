@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     triage_model: str = "claude-opus-5"
     # claude | gemini | stub (keyword rules; no key, for CI and dry runs) | score (stub extraction + local
-    # next-token scoring for the enumerated fields) | hybrid (gemini extraction + scoring)
+    # next-token scoring for the enumerated fields) | hybrid (gemini extraction + scoring) | jev / jev-hybrid
+    # (same split, decisions from TypeSafe's hosted model — needs a key and sends letter text off-box)
     triage_provider: str = "claude"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.1-flash-lite"
@@ -24,6 +25,10 @@ class Settings(BaseSettings):
     score_model: str = "qwen3-4b-instruct-q8"  # label for audit rows; the server decides what it actually runs
     score_rotations: int = 5  # option orders scored per decision (position-bias averaging), capped at len(options)
     score_flag_threshold: float = 0.5  # p(YES) at or above which an exception is proposed as a candidate
+    score_temperature: float = 6.0  # divides the rotation-averaged logits before softmax; fit on the evals (5–8 on both sets)
+    typesafe_api_key: str | None = None  # jev provider; console.typesafe.ai/keys
+    typesafe_base_url: str = "https://api.typesafe.ai"
+    typesafe_model: str = "jev-latest"
     # Reg Z general "business day" = days the creditor is open (§1026.2(a)(6)). Weekends plus these dates.
     creditor_closed_days: Annotated[set[date], NoDecode] = set()  # comma-separated ISO dates, not JSON
     clock_poll_seconds: float = 5.0

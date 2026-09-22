@@ -145,9 +145,11 @@ backend/Dockerfile  one image, role = command, non-root
 frontend/           Next.js operator UI: queue, case page, proposal review, letter composer, audit trail
 k8s/                kustomize tree: StatefulSets, Deployments, CronJob, HPA; deploy.sh tags by content id
   api/main.py       FastAPI: /intake, /intake/document, /documents/{id}, /cases, …/approve, …/letters, …/respond, …/transition, …/audit, …/effects
-backend/evals/      42 labeled letters in three tiers + runner; README.md is the miss analysis
-backend/tests/      53 tests — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle, auth,
-                    telemetry (SQLite); relay locking on Postgres (skipped without TEST_DATABASE_URL, run in CI)
+backend/evals/      42 labeled synthetic letters + 300 real CFPB narratives; runner, calibration/conformal
+                    report; README.md is the miss analysis, round by round
+backend/tests/      76 tests — calendars, clocks, transitions, letters, outbox, saga paths, HTTP lifecycle, auth,
+                    telemetry, scoring arithmetic, conformal bookkeeping (SQLite); relay locking on Postgres
+                    (skipped without TEST_DATABASE_URL, run in CI)
 ```
 
 ## Run
@@ -237,8 +239,12 @@ cd backend && .venv/Scripts/python -m pytest
 `backend/evals/` holds 42 labeled letters in three tiers — 20 plain (one thing per letter, every category),
 8 traps (no loan number, two asks, OCR noise, payoff buried in an RFI), 14 hard (labels that need an
 argument, a schema that cannot hold the answer, or two defensible answers). Synthetic, because the CFPB
-complaint database no longer exposes narratives; the hard tier was added after the first 28 scored 28/28,
-because a set the model aces measures the set. `python -m evals.run stub gemini`:
+complaint database stopped exposing narratives in 2025; the hard tier was added after the first 28 scored
+28/28, because a set the model aces measures the set. Round 5 added 300 *real* mortgage complaint
+narratives from a public mirror of the older CFPB data (`evals/cfpb/`) — the prose nobody on the project
+wrote — labeled by one full pass plus a second labeller on a random 60 (78 % agreement, κ = 0.61; the 13
+they disagreed on were ruled one by one with the regulation cited, and three of the rulings corrected the
+first labeller). `python -m evals.run stub gemini`:
 
 | | stub (keywords) | gemini-3.1-flash-lite |
 |---|---|---|
@@ -268,7 +274,23 @@ letter the majority got wrong — a real signal, one data point, and almost no r
 is nearly deterministic even at temperature 1. The local version is also done (`triage/score.py`, evals
 round 4): next-token scoring on a 4B model gives a distribution that finally spreads — 13 letters below
 0.90, a 29/13 auto-route/review split at 0.90 — but two misses score 1.00 in every option order, which no
-calibration fixes. Details in `backend/evals/README.md`.
+calibration fixes. Round 5 made the number honest and gave it a guarantee: averaging the option-order
+rotations in log space instead of probability space (AUROC 0.64 → 0.74 on the synthetic set, 0.70 → 0.75
+on the real one), temperature scaling (ECE 0.14 → 0.06 on 300 real narratives), and split conformal
+prediction sets, whose coverage does not depend on calibration at all. At 95 % coverage the desk can
+auto-route 45 % of real letters with an 8.8 % error rate among them, against 14 % for a raw threshold at
+the same volume; the wrong ones are the same two definitional gaps as the accuracy misses (origination
+complaints read as errors, modification trouble read as loss mitigation), which is what calibration cannot
+fix. `confidence` from the scoring provider is now that calibrated number. The same round fixed the flags
+that round 4 left leaning yes: judged only where Reg X has exceptions (NOE, RFI) and as a three-way choice,
+which took flagged real letters from 191/300 to 12/300 — and the detour through a longer definition with a
+"NOT" in it, which made a 4B model answer by option position, is written up as the lesson it was. Details
+in `backend/evals/README.md`. Round 6 put that against a model built for the job — TypeSafe's Jev, one
+request per letter instead of sixteen local prefills — and the result was a split decision: Jev arrives
+calibrated (ECE 0.02 against the local model's 0.06 after a temperature fit, confidence bands ordered out
+of the box) and loses on accuracy over real complaints, 197/300 against 228/300, because it reads the
+NOE/NOT_COVERED boundary more strictly than this set's labels do. The local provider stays the default;
+the hosted one needs a key and sends letter text off the box. `backend/evals/README.md` has both.
 
 ### Knowing what it is doing
 
@@ -299,10 +321,13 @@ eval as a smoke test of the harness, and lint + build of the UI.
 - ~~Step 3 — run it somewhere.~~ Done: `k8s/`, verified on Docker Desktop Kubernetes (kind provisioner) —
   CronJob fired a clock and the credit worker released the hold; orchestrator pod killed mid-saga, saga finished.
 - ~~Operator UI.~~ Done (`frontend/`, `k8s/web.yaml`).
-- ~~Evaluation set for triage.~~ Done (`backend/evals/`); CFPB narratives turned out not to be available.
+- ~~Evaluation set for triage.~~ Done (`backend/evals/`): 42 synthetic + 300 real CFPB narratives (round 5).
 - ~~CI, identity, observability.~~ Done: GitHub Actions with Postgres; bearer tokens + roles; JSON logs +
   Prometheus. Still static tokens — SSO maps onto the same `Principal` when there is an IdP to map from.
-- **Decision-model triage**: a calibrated classifier for the enumerated fields, scored on the same 42 letters.
+- ~~Decision-model triage.~~ Done for `case_type` (`triage/score.py` + `evals/conformal.py`): local
+  next-token scoring, logit averaging, temperature scaling, conformal sets. Open: the same for the (b)(n)
+  category and the exception flags once the real set has labels for them; a class-conditional guarantee
+  for NOT_COVERED; a bigger local model for the origination misses.
 - **Secondary requests**: a letter that is both an NOE and an RFI opens two cases with two clocks.
 - **Object store for the archive** (MinIO/S3 behind the `Storage` interface) before more than one node.
 - **Retention job**: `retain_until` once discharge/transfer dates exist, then a CronJob that deletes.
